@@ -202,8 +202,10 @@ router.get('/', async (req, res) => {
 })
 
 router.delete('/:id', async (req, res) => {
+	const id = toId(req.params.id)
+	if (!id) return res.status(404).json({ message: 'Booking not found' })
 	const booking = await prisma.booking.findUnique({
-		where: { id: toId(req.params.id) },
+		where: { id },
 		include: { hall: { select: { ownerId: true } } },
 	})
 	if (!booking) return res.status(404).json({ message: 'Booking not found' })

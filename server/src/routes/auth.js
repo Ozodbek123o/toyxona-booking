@@ -90,7 +90,10 @@ router.post('/verify-otp', async (req, res) => {
 	const { userId, otp } = req.body
 	if (!userId || !otp)
 		return res.status(400).json({ message: 'User and OTP are required' })
-	const user = await prisma.user.findUnique({ where: { id: Number(userId) } })
+	const id = Number(userId)
+	if (!Number.isInteger(id) || id < 1)
+		return res.status(400).json({ message: 'Invalid OTP' })
+	const user = await prisma.user.findUnique({ where: { id } })
 	if (
 		!user ||
 		user.otpCode !== otp

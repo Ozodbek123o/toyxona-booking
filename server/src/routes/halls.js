@@ -156,8 +156,10 @@ router.post(
 )
 
 router.get('/:id', optionalAuth, async (req, res) => {
+	const id = toId(req.params.id)
+	if (!id) return res.status(404).json({ message: 'Hall not found' })
 	const hall = await prisma.hall.findUnique({
-		where: { id: toId(req.params.id) },
+		where: { id },
 		include: hallInclude,
 	})
 	if (!hall) return res.status(404).json({ message: 'Hall not found' })
@@ -210,8 +212,10 @@ router.put(
 	permit('admin', 'owner'),
 	upload.array('photos', 10),
 	async (req, res) => {
+		const id = toId(req.params.id)
+		if (!id) return res.status(404).json({ message: 'Hall not found' })
 		const hall = await prisma.hall.findUnique({
-			where: { id: toId(req.params.id) },
+			where: { id },
 			include: { images: true },
 		})
 		if (!hall) return res.status(404).json({ message: 'Hall not found' })
@@ -276,7 +280,9 @@ router.put(
 )
 
 router.delete('/:id', auth, permit('admin', 'owner'), async (req, res) => {
-	const hall = await prisma.hall.findUnique({ where: { id: toId(req.params.id) } })
+	const id = toId(req.params.id)
+	if (!id) return res.status(404).json({ message: 'Hall not found' })
+	const hall = await prisma.hall.findUnique({ where: { id } })
 	if (!hall) return res.status(404).json({ message: 'Hall not found' })
 	if (req.user.role === 'owner' && hall.ownerId !== req.user.id)
 		return res.status(403).json({ message: 'Forbidden' })
