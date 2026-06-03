@@ -3,8 +3,10 @@ import { TASHKENT_DISTRICTS } from './hall.js'
 export function buildHallWhere(query, role, user) {
 	const where = { AND: [] }
 	if (role === 'user') where.AND.push({ status: 'approved' })
-	if (query.status) where.AND.push({ status: query.status })
-	if (query.district) where.AND.push({ district: query.district })
+	if (['approved', 'pending'].includes(query.status))
+		where.AND.push({ status: query.status })
+	if (TASHKENT_DISTRICTS.includes(query.district))
+		where.AND.push({ district: query.district })
 	if (query.search) {
 		where.AND.push({
 			OR: [
@@ -13,14 +15,18 @@ export function buildHallWhere(query, role, user) {
 			],
 		})
 	}
-	if (query.minPrice)
-		where.AND.push({ pricePerSeat: { gte: Number(query.minPrice) } })
-	if (query.maxPrice)
-		where.AND.push({ pricePerSeat: { lte: Number(query.maxPrice) } })
-	if (query.minCapacity)
-		where.AND.push({ capacity: { gte: Number(query.minCapacity) } })
-	if (query.maxCapacity)
-		where.AND.push({ capacity: { lte: Number(query.maxCapacity) } })
+	const minPrice = Number(query.minPrice)
+	const maxPrice = Number(query.maxPrice)
+	const minCapacity = Number(query.minCapacity)
+	const maxCapacity = Number(query.maxCapacity)
+	if (Number.isFinite(minPrice))
+		where.AND.push({ pricePerSeat: { gte: minPrice } })
+	if (Number.isFinite(maxPrice))
+		where.AND.push({ pricePerSeat: { lte: maxPrice } })
+	if (Number.isFinite(minCapacity))
+		where.AND.push({ capacity: { gte: minCapacity } })
+	if (Number.isFinite(maxCapacity))
+		where.AND.push({ capacity: { lte: maxCapacity } })
 	if (user?.role === 'owner') where.AND.push({ ownerId: user.id })
 	if (where.AND.length === 0) return {}
 	return where

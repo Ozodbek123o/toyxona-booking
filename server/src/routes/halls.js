@@ -223,6 +223,8 @@ router.put(
 			return res.status(403).json({ message: 'Forbidden' })
 
 		const body = buildHallBody(req.body, req.files)
+		if (!TASHKENT_DISTRICTS.includes(body.district))
+			return res.status(400).json({ message: 'Invalid district' })
 		const existingPhotos = parseJsonField(req.body.existingPhotos, [])
 		const photos =
 			body.photos.length > 0

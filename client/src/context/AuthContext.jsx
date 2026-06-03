@@ -4,8 +4,18 @@ import { api } from '../api/api';
 const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
 
+function storedUser() {
+  try {
+    return JSON.parse(localStorage.getItem('user') || 'null');
+  } catch {
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    return null;
+  }
+}
+
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('user') || 'null'));
+  const [user, setUser] = useState(storedUser);
   const [token, setToken] = useState(() => localStorage.getItem('token'));
 
   const save = data => {

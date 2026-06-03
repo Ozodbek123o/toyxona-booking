@@ -23,7 +23,9 @@ const uploadsDir = path.join(__dirname, '..', 'uploads')
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true })
 
 const isProduction = process.env.NODE_ENV === 'production'
-const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
+const allowedOrigins = (
+	process.env.CLIENT_URL || 'http://localhost:5173,http://127.0.0.1:5173'
+)
 	.split(',')
 	.map(origin => origin.trim())
 	.filter(Boolean)

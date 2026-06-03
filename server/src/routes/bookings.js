@@ -142,12 +142,24 @@ router.get('/', async (req, res) => {
 	}
 
 	if (req.query.date) {
-		where.date = normalizeDate(req.query.date)
+		const date = normalizeDate(req.query.date)
+		if (Number.isNaN(date.getTime()))
+			return res.status(400).json({ message: 'Invalid date filter' })
+		where.date = date
 	} else {
 		const dateFilter = {}
-		if (req.query.dateFrom)
-			dateFilter.gte = normalizeDate(req.query.dateFrom)
-		if (req.query.dateTo) dateFilter.lte = normalizeDate(req.query.dateTo)
+		if (req.query.dateFrom) {
+			const dateFrom = normalizeDate(req.query.dateFrom)
+			if (Number.isNaN(dateFrom.getTime()))
+				return res.status(400).json({ message: 'Invalid date filter' })
+			dateFilter.gte = dateFrom
+		}
+		if (req.query.dateTo) {
+			const dateTo = normalizeDate(req.query.dateTo)
+			if (Number.isNaN(dateTo.getTime()))
+				return res.status(400).json({ message: 'Invalid date filter' })
+			dateFilter.lte = dateTo
+		}
 		if (Object.keys(dateFilter).length) where.date = dateFilter
 	}
 
