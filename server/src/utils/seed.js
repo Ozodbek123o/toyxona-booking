@@ -135,7 +135,7 @@ export async function seedDemoData() {
 				{ url: photos[0], name: 'royal' },
 				{ url: photos[1], name: 'royal-2' },
 			],
-			district: 'Yunusobod',
+			district: 'Yunusabad',
 			address: 'Amir Temur shoh ko‘chasi, 108',
 			capacity: 650,
 			pricePerSeat: 185000,
@@ -155,7 +155,7 @@ export async function seedDemoData() {
 				{ url: photos[1], name: 'crystal' },
 				{ url: photos[2], name: 'crystal-2' },
 			],
-			district: 'Chilonzor',
+			district: 'Chilanzar',
 			address: 'Bunyodkor prospekti, 45',
 			capacity: 520,
 			pricePerSeat: 155000,
@@ -175,7 +175,7 @@ export async function seedDemoData() {
 				{ url: photos[2], name: 'emerald' },
 				{ url: photos[3], name: 'emerald-2' },
 			],
-			district: 'Yakkasaroy',
+			district: 'Yakkasaray',
 			address: 'Shota Rustaveli ko‘chasi, 22',
 			capacity: 380,
 			pricePerSeat: 130000,
@@ -194,7 +194,7 @@ export async function seedDemoData() {
 				{ url: photos[3], name: 'darvoza' },
 				{ url: photos[4], name: 'darvoza-2' },
 			],
-			district: 'Shayxontohur',
+			district: 'Shaykhantahur',
 			address: 'Beruniy ko‘chasi, 31',
 			capacity: 700,
 			pricePerSeat: 145000,
@@ -214,7 +214,7 @@ export async function seedDemoData() {
 				{ url: photos[4], name: 'skyline' },
 				{ url: photos[5], name: 'skyline-2' },
 			],
-			district: 'Mirobod',
+			district: 'Mirabad',
 			address: 'Afrosiyob ko‘chasi, 12',
 			capacity: 300,
 			pricePerSeat: 210000,
@@ -246,72 +246,134 @@ export async function seedDemoData() {
 
 	const halls = []
 	for (const h of hallData) {
-		halls.push(await prisma.hall.create({ data: h }))
+		halls.push(
+			await prisma.hall.create({
+				data: {
+					ownerId: h.ownerId,
+					name: h.name,
+					district: h.district,
+					address: h.address,
+					capacity: h.capacity,
+					pricePerSeat: h.pricePerSeat,
+					phone: h.phone,
+					status: h.status,
+					hasKarnaySurnay: Boolean(h.services.karnaySurnay.available),
+					karnaySurnayPrice: h.services.karnaySurnay.available
+						? h.services.karnaySurnay.price
+						: null,
+					images: {
+						create: h.photos.map(photo => ({ imageUrl: photo.url })),
+					},
+					singers: {
+						create: h.services.singers.map(singer => ({
+							name: singer.name,
+							price: singer.price,
+							imageUrl: singer.photo,
+						})),
+					},
+					menus: {
+						create: h.services.menus.map(menu => ({
+							name: menu.name,
+							imageUrl: menu.photo,
+						})),
+					},
+					cars: {
+						create: h.services.cars.map(car => ({
+							brand: car.brand,
+							price: car.price,
+							imageUrl: car.photo,
+						})),
+					},
+				},
+				include: { singers: true, cars: true, menus: true },
+			}),
+		)
 	}
 
-	const s0 = halls[0].services
+	const s0 = hallData[0].services
 	const b0Total =
-		420 * halls[0].pricePerSeat +
+		420 * Number(halls[0].pricePerSeat) +
 		s0.singers[0].price +
 		s0.karnaySurnay.price +
-		s0.menus[0].price +
 		s0.cars[0].price
-	const s1 = halls[1].services
+	const s1 = hallData[1].services
 	const b1Total =
-		300 * halls[1].pricePerSeat + s1.singers[1].price + s1.menus[1].price
-	const s3 = halls[3].services
+		300 * Number(halls[1].pricePerSeat) + s1.singers[1].price
+	const s3 = hallData[3].services
 	const b2Total =
-		550 * halls[3].pricePerSeat +
+		550 * Number(halls[3].pricePerSeat) +
 		s3.karnaySurnay.price +
-		s3.menus[0].price +
 		s3.cars[1].price
 
-	await prisma.booking.createMany({
-		data: [
+	const demoBookings = [
 			{
 				hallId: halls[0].id,
 				userId: users[0].id,
 				date: dateAfter(3),
 				seats: 420,
-				selectedServices: {
-					singers: [s0.singers[0]._id],
-					karnaySurnay: true,
-					menus: [s0.menus[0]._id],
-					cars: [s0.cars[0]._id],
-				},
 				totalPrice: b0Total,
 				advancePaid: Math.round(b0Total * 0.2),
+				services: {
+					create: [
+						{
+							serviceType: 'singer',
+							serviceItemId: halls[0].singers[0].id,
+							price: s0.singers[0].price,
+						},
+						{
+							serviceType: 'car',
+							serviceItemId: halls[0].cars[0].id,
+							price: s0.cars[0].price,
+						},
+						{
+							serviceType: 'karnay_surnay',
+							serviceItemId: null,
+							price: s0.karnaySurnay.price,
+						},
+					],
+				},
 			},
 			{
 				hallId: halls[1].id,
 				userId: users[1].id,
 				date: dateAfter(7),
 				seats: 300,
-				selectedServices: {
-					singers: [s1.singers[1]._id],
-					karnaySurnay: false,
-					menus: [s1.menus[1]._id],
-					cars: [],
-				},
 				totalPrice: b1Total,
 				advancePaid: Math.round(b1Total * 0.2),
+				services: {
+					create: [
+						{
+							serviceType: 'singer',
+							serviceItemId: halls[1].singers[1].id,
+							price: s1.singers[1].price,
+						},
+					],
+				},
 			},
 			{
 				hallId: halls[3].id,
 				userId: users[0].id,
 				date: dateAfter(12),
 				seats: 550,
-				selectedServices: {
-					singers: [],
-					karnaySurnay: true,
-					menus: [s3.menus[0]._id],
-					cars: [s3.cars[1]._id],
-				},
 				totalPrice: b2Total,
 				advancePaid: Math.round(b2Total * 0.2),
+				services: {
+					create: [
+						{
+							serviceType: 'car',
+							serviceItemId: halls[3].cars[1].id,
+							price: s3.cars[1].price,
+						},
+						{
+							serviceType: 'karnay_surnay',
+							serviceItemId: null,
+							price: s3.karnaySurnay.price,
+						},
+					],
+				},
 			},
-		],
-	})
+		]
+	for (const booking of demoBookings) await prisma.booking.create({ data: booking })
 
 	console.log('Demo data seeded to PostgreSQL')
 }
