@@ -2,10 +2,10 @@ import { Prisma } from '@prisma/client'
 import express from 'express'
 import prisma from '../lib/prisma.js'
 import { auth } from '../middleware/auth.js'
-import { normalizeDate } from '../utils/hall.js'
+import { normalizeDate, toId } from '../utils/hall.js'
 import { bookingStatus, BOOKING_STATUS } from '../utils/bookingStatus.js'
 import { calculateTotal, advanceAmount } from '../utils/price.js'
-import { formatBooking } from '../utils/format.js'
+import { formatBooking, formatHall, hallInclude } from '../utils/format.js'
 
 const router = express.Router()
 router.use(auth)
@@ -18,12 +18,14 @@ class HttpError extends Error {
 }
 
 function selectedServicesFrom(value = {}) {
-	const toStringArray = list =>
-		Array.isArray(list) ? list.map(item => String(item)).slice(0, 20) : []
+	const toNumberArray = list =>
+		Array.isArray(list)
+			? list.map(item => toId(item)).filter(Boolean).slice(0, 20)
+			: []
 	return {
-		singers: toStringArray(value.singers),
-		cars: toStringArray(value.cars),
-		menus: toStringArray(value.menus),
+		singers: toNumberArray(value.singers),
+		cars: toNumberArray(value.cars),
+		menus: toNumberArray(value.menus),
 		karnaySurnay: Boolean(value.karnaySurnay),
 	}
 }
@@ -34,6 +36,26 @@ function bookingConflict(error) {
 		error?.code === 'P2034' ||
 		error?.status === 409
 	)
+}
+
+function selectedServiceRows(hall, selectedServices) {
+	const rows = []
+	for (const id of selectedServices.singers) {
+		const item = hall.services.singers.find(singer => singer.id === id)
+		if (item) rows.push({ serviceType: 'singer', serviceItemId: id, price: item.price })
+	}
+	for (const id of selectedServices.cars) {
+		const item = hall.services.cars.find(car => car.id === id)
+		if (item) rows.push({ serviceType: 'car', serviceItemId: id, price: item.price })
+	}
+	if (selectedServices.karnaySurnay && hall.services.karnaySurnay.available) {
+		rows.push({
+			serviceType: 'karnay_surnay',
+			serviceItemId: null,
+			price: hall.services.karnaySurnay.price,
+		})
+	}
+	return rows
 }
 
 router.post('/', async (req, res) => {
@@ -51,18 +73,24 @@ router.post('/', async (req, res) => {
 		const booking = await prisma.$transaction(
 			async tx => {
 				const hall = await tx.hall.findFirst({
-					where: { id: req.body.hallId, status: 'approved' },
+					where: { id: toId(req.body.hallId), status: 'approved' },
+					include: hallInclude,
 				})
 				if (!hall) throw new HttpError(404, 'Approved hall not found')
 				if (seats > hall.capacity)
 					throw new HttpError(400, 'Invalid seats count')
 
 				const clash = await tx.booking.findFirst({
-					where: { hallId: hall.id, date, cancelled: false },
+					where: {
+						hallId: hall.id,
+						date,
+						status: { in: ['upcoming', 'completed'] },
+					},
 				})
 				if (clash) throw new HttpError(409, 'This date is already booked')
 
-				const totalPrice = calculateTotal(hall, seats, selectedServices)
+				const apiHall = formatHall(hall)
+				const totalPrice = calculateTotal(apiHall, seats, selectedServices)
 				const advancePaid = advanceAmount(totalPrice)
 				return tx.booking.create({
 					data: {
@@ -70,18 +98,21 @@ router.post('/', async (req, res) => {
 						userId: req.user.id,
 						date,
 						seats,
-						selectedServices,
 						totalPrice,
 						advancePaid,
+						services: {
+							create: selectedServiceRows(apiHall, selectedServices),
+						},
 					},
+					include: { services: true },
 				})
 			},
 			{ isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
 		)
 		res.status(201).json({
 			...formatBooking(booking),
-			advancePaid: booking.advancePaid,
-			totalPrice: booking.totalPrice,
+			advancePaid: Number(booking.advancePaid),
+			totalPrice: Number(booking.totalPrice),
 		})
 	} catch (error) {
 		if (bookingConflict(error))
@@ -91,9 +122,9 @@ router.post('/', async (req, res) => {
 })
 
 router.get('/', async (req, res) => {
-	const where = { cancelled: false }
+	const where = { status: { not: 'cancelled' } }
 	if (req.user.role === 'user') where.userId = req.user.id
-	if (req.query.hall) where.hallId = req.query.hall
+	if (req.query.hall) where.hallId = toId(req.query.hall)
 
 	if (req.user.role === 'owner') {
 		const myHalls = await prisma.hall.findMany({
@@ -102,8 +133,9 @@ router.get('/', async (req, res) => {
 		})
 		const ids = myHalls.map(h => h.id)
 		if (req.query.hall) {
-			if (!ids.includes(req.query.hall)) return res.json([])
-			where.hallId = req.query.hall
+			const hallId = toId(req.query.hall)
+			if (!ids.includes(hallId)) return res.json([])
+			where.hallId = hallId
 		} else {
 			where.hallId = { in: ids }
 		}
@@ -128,6 +160,11 @@ router.get('/', async (req, res) => {
 					name: true,
 					district: true,
 					ownerId: true,
+					pricePerSeat: true,
+					capacity: true,
+					status: true,
+					hasKarnaySurnay: true,
+					karnaySurnayPrice: true,
 				},
 			},
 			user: {
@@ -138,6 +175,7 @@ router.get('/', async (req, res) => {
 					phone: true,
 				},
 			},
+			services: true,
 		},
 		orderBy: { date: req.query.sortDate === 'desc' ? 'desc' : 'asc' },
 	})
@@ -165,7 +203,7 @@ router.get('/', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
 	const booking = await prisma.booking.findUnique({
-		where: { id: req.params.id },
+		where: { id: toId(req.params.id) },
 		include: { hall: { select: { ownerId: true } } },
 	})
 	if (!booking) return res.status(404).json({ message: 'Booking not found' })
@@ -182,8 +220,8 @@ router.delete('/:id', async (req, res) => {
 			.status(400)
 			.json({ message: 'O’tgan bronni bekor qilib bo’lmaydi' })
 	await prisma.booking.update({
-		where: { id: req.params.id },
-		data: { cancelled: true },
+		where: { id: booking.id },
+		data: { status: 'cancelled' },
 	})
 	res.json({ message: 'Booking cancelled' })
 })

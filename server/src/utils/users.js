@@ -12,13 +12,17 @@ export async function comparePassword(user, password) {
 
 export async function createUser(data) {
 	const password = await hashPassword(data.password)
+	const phone = data.phone || '+998000000000'
+	const email =
+		data.email?.toLowerCase() ||
+		`${String(data.username || phone).replace(/\W/g, '')}@toyxona.local`
 	const user = await prisma.user.create({
 		data: {
 			firstName: data.firstName,
 			lastName: data.lastName,
-			phone: data.phone || null,
-			email: data.email?.toLowerCase() || null,
-			username: data.username || null,
+			phone,
+			email,
+			username: data.username || phone,
 			password,
 			role: data.role || 'user',
 			isVerified: data.isVerified ?? false,
@@ -39,13 +43,13 @@ export async function findUserByLogin(key) {
 }
 
 export async function getUserById(id) {
-	const user = await prisma.user.findUnique({ where: { id } })
+	const user = await prisma.user.findUnique({ where: { id: Number(id) } })
 	return user ? formatUser(user) : null
 }
 
 export async function getAuthUser(id) {
 	const user = await prisma.user.findUnique({
-		where: { id },
+		where: { id: Number(id) },
 		select: {
 			id: true,
 			firstName: true,

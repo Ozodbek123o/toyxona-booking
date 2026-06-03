@@ -71,7 +71,6 @@ router.post('/login', async (req, res) => {
 				where: { id: user.id },
 				data: {
 					otpCode: otp,
-					otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
 				},
 			})
 			await sendOtp(user.email, otp)
@@ -91,17 +90,15 @@ router.post('/verify-otp', async (req, res) => {
 	const { userId, otp } = req.body
 	if (!userId || !otp)
 		return res.status(400).json({ message: 'User and OTP are required' })
-	const user = await prisma.user.findUnique({ where: { id: userId } })
+	const user = await prisma.user.findUnique({ where: { id: Number(userId) } })
 	if (
 		!user ||
-		user.otpCode !== otp ||
-		!user.otpExpiresAt ||
-		user.otpExpiresAt < new Date()
+		user.otpCode !== otp
 	)
 		return res.status(400).json({ message: 'Invalid OTP' })
 	const updated = await prisma.user.update({
-		where: { id: userId },
-		data: { isVerified: true, otpCode: null, otpExpiresAt: null },
+		where: { id: user.id },
+		data: { isVerified: true, otpCode: null },
 	})
 	res.json({ token: tokenFor(updated), user: safe(updated) })
 })
