@@ -1,6 +1,7 @@
 import cors from 'cors'
 import dotenv from 'dotenv'
-import express, { Request, Response } from 'express'
+import express from 'express'
+import type { Request, Response } from 'express'
 
 // .env fayldagi o'zgaruvchilarni o'qish
 dotenv.config()
