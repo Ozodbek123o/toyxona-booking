@@ -2,6 +2,11 @@
 
 React + Vite frontend, Express + Prisma backend, PostgreSQL database.
 
+Loyiha berilgan ERD/DDLga mos normalized PostgreSQL jadvallar bilan ishlaydi:
+`users`, `wedding_halls`, `hall_images`, `singers`, `cars`, `menus`,
+`bookings`, `booking_services`. Barcha bog'lanishlar Prisma relationlari orqali
+ulangan, active bookinglar esa bitta to'yxona/bitta sana uchun unique qilinadi.
+
 ## Talablar
 
 - Node.js 20.19+ yoki 22.12+
@@ -70,6 +75,12 @@ Clientda demo loginlarni ko'rsatish uchun faqat lokal muhitda:
 ```env
 VITE_SHOW_DEMO_HINTS=true
 ```
+
+Demo loginlar:
+
+- Admin: `admin` / `Admin12345!`
+- To'yxona egasi: `aziz_owner` / `Owner12345!`
+- Mijoz: `+998901112233` / `User12345!`
 
 ## Muhim production sozlamalar
 
