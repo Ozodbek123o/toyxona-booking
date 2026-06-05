@@ -21,10 +21,15 @@ export default function Bookings() {
 	})
 
 	const load = async (f = filters) => {
-		const params = new URLSearchParams()
-		Object.entries(f).forEach(([k, v]) => v && params.set(k, v))
-		const { data } = await api.get(`/bookings?${params}`)
-		setItems(data)
+		try {
+			const params = new URLSearchParams()
+			Object.entries(f).forEach(([k, v]) => v && params.set(k, v))
+			const { data } = await api.get(`/bookings?${params}`)
+			setItems(Array.isArray(data) ? data : [])
+		} catch (err) {
+			setItems([])
+			toast.error(err.response?.data?.message || 'Bronlarni yuklab bo‘lmadi')
+		}
 	}
 
 	useEffect(() => {
@@ -171,7 +176,7 @@ export default function Bookings() {
 								!isPast
 							return (
 								<tr key={b._id}>
-									<td>#{b._id.slice(-6)}</td>
+									<td>#{String(b._id ?? b.id).padStart(6, '0')}</td>
 									<td>
 										<b>{b.hall?.name}</b>
 									</td>

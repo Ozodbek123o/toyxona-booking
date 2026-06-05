@@ -25,10 +25,16 @@ CLIENT_URL=http://localhost:5173
 SEED_DEMO=false
 ```
 
-Database schema va active booking unique index:
+PostgreSQL schema (DDL + indekslar) va Prisma client:
 
 ```bash
 npm --prefix server run db:setup
+```
+
+Agar SQL seed faylida placeholder `password_hash` bo‘lsa, demo parollarni yangilang:
+
+```bash
+npm --prefix server run db:reset-passwords
 ```
 
 Ishga tushirish:
@@ -43,7 +49,15 @@ npm run dev
 
 ## Demo data
 
-Demo hisoblar va demo to'yxonalar faqat `server/.env` ichida `SEED_DEMO=true` bo'lsa yaratiladi. Productionda `SEED_DEMO=false` qoldiring va admin hisobni env orqali yarating:
+SQL seed (`users`, `wedding_halls`, …) yoki `SEED_DEMO=true` bilan yaratilgan demo ma’lumotlar:
+
+| Rol | Login | Parol |
+|-----|-------|-------|
+| Admin | `platform_admin` | `Admin12345!` |
+| Egasi | `toyxona_owner` | `Owner12345!` |
+| Mijoz | `ozod_customer` | `User12345!` |
+
+`SEED_DEMO=true` bo‘lsa va bazada to‘yxona bo‘lmasa, qo‘shimcha demo zallar ham yaratiladi. Productionda `SEED_DEMO=false` qoldiring va admin hisobni env orqali yarating:
 
 ```env
 ADMIN_USERNAME=admin

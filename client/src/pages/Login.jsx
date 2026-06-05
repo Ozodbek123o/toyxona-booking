@@ -143,8 +143,9 @@ export default function Login() {
 			{showDemoHints && (
 				<div className="demo-hints muted">
 					<p>
-						<b>Demo:</b> User +998901112233 / User12345! · Admin admin /
-						Admin12345! · Egasi aziz_owner / Owner12345!
+						<b>Demo:</b> Mijoz ozod_customer / User12345! · Admin
+						platform_admin / Admin12345! · Egasi toyxona_owner /
+						Owner12345!
 					</p>
 					<p>
 						Yangi egasi birinchi marta OTP bilan tasdiqlanadi (email konsolda).

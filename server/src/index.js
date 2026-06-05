@@ -13,7 +13,7 @@ import authRoutes from './routes/auth.js'
 import bookingRoutes from './routes/bookings.js'
 import hallRoutes from './routes/halls.js'
 import { seedDemoData } from './utils/seed.js'
-import { createUser } from './utils/users.js'
+import { createUser, hashPassword } from './utils/users.js'
 
 dotenv.config()
 const app = express()
@@ -80,6 +80,15 @@ app.get('/api/health', async (req, res) => {
 	}
 })
 
+const clientDist = path.join(__dirname, '..', '..', 'client', 'dist')
+if (isProduction && fs.existsSync(clientDist)) {
+	app.use(express.static(clientDist))
+	app.get('*', (req, res, next) => {
+		if (req.path.startsWith('/api')) return next()
+		res.sendFile(path.join(clientDist, 'index.html'))
+	})
+}
+
 app.use((err, req, res, next) => {
 	if (err?.message === 'Not allowed by CORS') {
 		return res.status(403).json({ message: 'Origin is not allowed' })
@@ -104,7 +113,7 @@ async function seedAdmin() {
 	}
 
 	const exists = await prisma.user.findFirst({
-		where: { role: 'admin', username },
+		where: { role: 'ADMIN', username },
 	})
 	if (!exists) {
 		await createUser({
@@ -117,6 +126,18 @@ async function seedAdmin() {
 			isVerified: true,
 		})
 		console.log('Admin user created')
+		return
+	}
+
+	const hash = exists.passwordHash || ''
+	const placeholder =
+		!hash.startsWith('$2a$') && !hash.startsWith('$2b$')
+	if (process.env.SYNC_ADMIN_PASSWORD === 'true' || placeholder) {
+		await prisma.user.update({
+			where: { id: exists.id },
+			data: { passwordHash: await hashPassword(password), isVerified: true },
+		})
+		if (placeholder) console.log('Admin password hash repaired from env')
 	}
 }
 

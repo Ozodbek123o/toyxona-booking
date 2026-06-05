@@ -1,3 +1,3 @@
-CREATE UNIQUE INDEX IF NOT EXISTS "Booking_active_hall_date_key"
-ON "Booking"("hallId", "date")
-WHERE "cancelled" = false;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_active_bookings_hall_date
+ON bookings(hall_id, booking_date)
+WHERE status IN ('UPCOMING','COMPLETED');
