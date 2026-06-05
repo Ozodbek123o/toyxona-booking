@@ -8,8 +8,8 @@
 		"postinstall": "prisma generate",
 		"db:push": "prisma db push",
 		"db:init": "prisma db execute --file prisma/init.sql --schema prisma/schema.prisma",
-		"db:indexes": "prisma db execute --file prisma/production-indexes.sql --schema prisma/schema.prisma",
-		"db:setup": "prisma db execute --file prisma/init.sql --schema prisma/schema.prisma && prisma generate && prisma db execute --file prisma/production-indexes.sql --schema prisma/schema.prisma",
+		"db:indexes": "prisma db execute --file prisma/production-indexes.pgsql.sql --schema prisma/schema.prisma",
+		"db:setup": "prisma db execute --file prisma/init.sql --schema prisma/schema.prisma && prisma generate && prisma db execute --file prisma/production-indexes.pgsql.sql --schema prisma/schema.prisma",
 		"db:studio": "prisma studio",
 		"db:reset-passwords": "node scripts/reset-passwords.mjs"
 	},
