@@ -29,7 +29,14 @@ const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
 	.filter(Boolean)
 
 if (!process.env.JWT_SECRET) {
-	throw new Error('JWT_SECRET is required')
+	if (isProduction) {
+		throw new Error('JWT_SECRET is required in production')
+	} else {
+		console.warn(
+			'⚠️ WARNING: JWT_SECRET is not set. Using default secret for development.',
+		)
+		process.env.JWT_SECRET = 'dev-secret-key-12345'
+	}
 }
 if (isProduction && process.env.SEED_DEMO === 'true') {
 	throw new Error('SEED_DEMO must be false in production')
@@ -44,14 +51,18 @@ app.use(
 app.use(
 	cors({
 		origin(origin, callback) {
-			if (!origin || allowedOrigins.includes(origin)) return callback(null, true)
+			if (!origin || allowedOrigins.includes(origin))
+				return callback(null, true)
 			return callback(new Error('Not allowed by CORS'))
 		},
 		credentials: true,
 	}),
 )
 app.use(express.json({ limit: process.env.JSON_LIMIT || '1mb' }))
-app.use('/uploads', express.static(uploadsDir, { maxAge: isProduction ? '7d' : 0 }))
+app.use(
+	'/uploads',
+	express.static(uploadsDir, { maxAge: isProduction ? '7d' : 0 }),
+)
 
 const apiLimiter = rateLimit({
 	windowMs: 15 * 60 * 1000,
@@ -106,7 +117,8 @@ app.use((err, req, res, next) => {
 async function seedAdmin() {
 	const seedDemo = process.env.SEED_DEMO === 'true'
 	const username = process.env.ADMIN_USERNAME || (seedDemo ? 'admin' : null)
-	const password = process.env.ADMIN_PASSWORD || (seedDemo ? 'Admin12345!' : null)
+	const password =
+		process.env.ADMIN_PASSWORD || (seedDemo ? 'Admin12345!' : null)
 	if (!username || !password) return
 	if (isProduction && password === 'Admin12345!') {
 		throw new Error('Refusing to use demo ADMIN_PASSWORD in production')
@@ -130,8 +142,7 @@ async function seedAdmin() {
 	}
 
 	const hash = exists.passwordHash || ''
-	const placeholder =
-		!hash.startsWith('$2a$') && !hash.startsWith('$2b$')
+	const placeholder = !hash.startsWith('$2a$') && !hash.startsWith('$2b$')
 	if (process.env.SYNC_ADMIN_PASSWORD === 'true' || placeholder) {
 		await prisma.user.update({
 			where: { id: exists.id },
