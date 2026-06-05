@@ -4,8 +4,8 @@ import type { Request, Response } from 'express'
 import express from 'express'
 
 // Routerlarni import qilish (Loyiha strukturasiga mos holda)
-import authRoutes from './routes/auth' // src/routes/auth.ts (yoki auth.js) fayli uchun
-import hallRoutes from './routes/halls' // src/routes/halls.ts (yoki halls.js) fayli uchun
+import authRoutes from './routes/auth.js' // src/routes/auth.ts (yoki auth.js) fayli uchun
+import hallRoutes from './routes/halls.js' // src/routes/halls.ts (yoki halls.js) fayli uchun
 
 // .env fayldagi o'zgaruvchilarni o'qish (PORT va DATABASE_URL uchun)
 dotenv.config()
