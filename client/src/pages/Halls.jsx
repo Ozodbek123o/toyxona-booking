@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import toast from 'react-hot-toast'
 import { Link } from 'react-router-dom'
 import {
 	CalendarCheck,
@@ -15,6 +16,8 @@ import HallFilters from '../components/HallFilters'
 export default function Halls() {
 	const [halls, setHalls] = useState([])
 	const [stats, setStats] = useState(null)
+	const [loading, setLoading] = useState(true)
+	const [error, setError] = useState('')
 	const [filters, setFilters] = useState({
 		search: '',
 		district: '',
@@ -39,10 +42,22 @@ export default function Halls() {
 	}, [filters])
 
 	async function load(next = filters) {
-		const params = new URLSearchParams({ public: 'true' })
-		Object.entries(next).forEach(([key, value]) => value && params.set(key, value))
-		const { data } = await api.get(`/halls?${params}`)
-		setHalls(data)
+		setLoading(true)
+		setError('')
+		try {
+			const params = new URLSearchParams({ public: 'true' })
+			Object.entries(next).forEach(([key, value]) => value && params.set(key, value))
+			const { data } = await api.get(`/halls?${params}`)
+			setHalls(Array.isArray(data) ? data : [])
+		} catch (err) {
+			setHalls([])
+			const message =
+				err.response?.data?.message || 'To’yxonalarni yuklab bo‘lmadi'
+			setError(message)
+			toast.error(message)
+		} finally {
+			setLoading(false)
+		}
 	}
 
 	const cheapest = useMemo(
@@ -125,8 +140,19 @@ export default function Halls() {
 
 			<div className="section-head">
 				<h2>Tavsiya etilgan to’yxonalar</h2>
-				<p>{halls.length} ta variant topildi</p>
+				<p>
+					{loading
+						? 'Yuklanmoqda...'
+						: error
+							? 'Xatolik yuz berdi'
+							: `${halls.length} ta variant topildi`}
+				</p>
 			</div>
+			{error && !loading && (
+				<div className="card muted" style={{ marginBottom: '1rem' }}>
+					{error}. API manzili: {API_URL}/api/halls
+				</div>
+			)}
 			<div className="cards">
 				{halls.map(h => (
 					<Link className="hall card" to={`/halls/${h._id}`} key={h._id}>
