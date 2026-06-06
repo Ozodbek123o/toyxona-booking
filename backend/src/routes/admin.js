@@ -8,11 +8,28 @@ import { createUser, hashPassword } from '../utils/users.js'
 const router = express.Router()
 router.use(auth, permit('admin'))
 
+const isMissingRecord = error => error?.code === 'P2025'
+const toId = value => {
+	const id = Number(value)
+	return Number.isInteger(id) ? id : null
+}
+
 router.post('/owners', async (req, res) => {
 	try {
+		const { firstName, lastName, email, phone, username, password } = req.body
+		if (!firstName || !lastName || !email || !phone || !username || !password)
+			return res.status(400).json({ message: 'All fields are required' })
+		if (String(password).length < 8)
+			return res
+				.status(400)
+				.json({ message: 'Password must be at least 8 characters' })
 		const user = await createUser({
-			...req.body,
-			phone: req.body.phone || req.body.phoneNumber,
+			firstName,
+			lastName,
+			email,
+			phone,
+			username,
+			password,
 			role: 'owner',
 			isVerified: false,
 		})
@@ -43,18 +60,27 @@ router.get('/owners', async (req, res) => {
 
 router.patch('/owners/:id', async (req, res) => {
 	try {
-		const { firstName, lastName, email, username, password, isVerified } =
+		const id = toId(req.params.id)
+		if (!id) return res.status(404).json({ message: 'Owner not found' })
+		const { firstName, lastName, email, phone, username, password, isVerified } =
 			req.body
 		const data = {}
 		if (firstName) data.firstName = firstName
 		if (lastName) data.lastName = lastName
 		if (email) data.email = email.toLowerCase()
 		if (username) data.username = username
-		if (password) data.passwordHash = await hashPassword(password)
+		if (phone) data.phoneNumber = phone
+		if (password) {
+			if (String(password).length < 8)
+				return res
+					.status(400)
+					.json({ message: 'Password must be at least 8 characters' })
+			data.passwordHash = await hashPassword(password)
+		}
 		if (typeof isVerified === 'boolean') data.isVerified = isVerified
 
 		const existing = await prisma.user.findFirst({
-			where: { id: Number(req.params.id), role: 'OWNER' },
+			where: { id, role: 'OWNER' },
 		})
 		if (!existing) return res.status(404).json({ message: 'Owner not found' })
 		const user = await prisma.user.update({
@@ -87,30 +113,60 @@ router.delete('/owners/:id', async (req, res) => {
 })
 
 router.patch('/halls/:id/owner', async (req, res) => {
-	const hall = await prisma.weddingHall.update({
-		where: { id: Number(req.params.id) },
-		data: { ownerId: Number(req.body.ownerId) },
-		include: hallInclude,
-	})
-	res.json(formatHall(hall))
+	try {
+		const id = toId(req.params.id)
+		if (!id) return res.status(404).json({ message: 'Hall not found' })
+		const ownerId = toId(req.body.ownerId)
+		if (!ownerId) return res.status(404).json({ message: 'Owner not found' })
+		const owner = await prisma.user.findFirst({
+			where: { id: ownerId, role: 'OWNER' },
+		})
+		if (!owner) return res.status(404).json({ message: 'Owner not found' })
+		const hall = await prisma.weddingHall.update({
+			where: { id },
+			data: { ownerId: owner.id },
+			include: hallInclude,
+		})
+		res.json(formatHall(hall))
+	} catch (error) {
+		if (isMissingRecord(error))
+			return res.status(404).json({ message: 'Hall not found' })
+		res.status(400).json({ message: error.message })
+	}
 })
 
 router.patch('/halls/:id/approve', async (req, res) => {
-	const hall = await prisma.weddingHall.update({
-		where: { id: Number(req.params.id) },
-		data: { status: 'APPROVED' },
-		include: hallInclude,
-	})
-	res.json(formatHall(hall))
+	try {
+		const id = toId(req.params.id)
+		if (!id) return res.status(404).json({ message: 'Hall not found' })
+		const hall = await prisma.weddingHall.update({
+			where: { id },
+			data: { status: 'APPROVED' },
+			include: hallInclude,
+		})
+		res.json(formatHall(hall))
+	} catch (error) {
+		if (isMissingRecord(error))
+			return res.status(404).json({ message: 'Hall not found' })
+		res.status(400).json({ message: error.message })
+	}
 })
 
 router.patch('/halls/:id/reject', async (req, res) => {
-	const hall = await prisma.weddingHall.update({
-		where: { id: Number(req.params.id) },
-		data: { status: 'PENDING' },
-		include: hallInclude,
-	})
-	res.json(formatHall(hall))
+	try {
+		const id = toId(req.params.id)
+		if (!id) return res.status(404).json({ message: 'Hall not found' })
+		const hall = await prisma.weddingHall.update({
+			where: { id },
+			data: { status: 'PENDING' },
+			include: hallInclude,
+		})
+		res.json(formatHall(hall))
+	} catch (error) {
+		if (isMissingRecord(error))
+			return res.status(404).json({ message: 'Hall not found' })
+		res.status(400).json({ message: error.message })
+	}
 })
 
 export default router

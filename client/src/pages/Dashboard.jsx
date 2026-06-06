@@ -32,6 +32,7 @@ export default function Dashboard({ type }) {
 		firstName: '',
 		lastName: '',
 		email: '',
+		phone: '',
 		username: '',
 		password: '',
 	})
@@ -101,6 +102,7 @@ export default function Dashboard({ type }) {
 				firstName: '',
 				lastName: '',
 				email: '',
+				phone: '',
 				username: '',
 				password: '',
 			})
@@ -132,6 +134,7 @@ export default function Dashboard({ type }) {
 				firstName: '',
 				lastName: '',
 				email: '',
+				phone: '',
 				username: '',
 				password: '',
 			})
@@ -327,26 +330,31 @@ export default function Dashboard({ type }) {
 							<UserPlus size={20} /> Yangi egasi
 						</h2>
 						<form className="grid" onSubmit={addOwner}>
-							{['firstName', 'lastName', 'email', 'username', 'password'].map(
-								k => (
-									<input
-										key={k}
-										type={k === 'password' ? 'password' : 'text'}
-										placeholder={
-											k === 'firstName'
-												? 'Ism'
-												: k === 'lastName'
-													? 'Familiya'
-													: k
-										}
-										value={owner[k]}
-										onChange={e =>
-											setOwner({ ...owner, [k]: e.target.value })
-										}
-										required
-									/>
-								),
-							)}
+							{[
+								'firstName',
+								'lastName',
+								'email',
+								'phone',
+								'username',
+								'password',
+							].map(k => (
+								<input
+									key={k}
+									type={k === 'password' ? 'password' : 'text'}
+									placeholder={
+										k === 'firstName'
+											? 'Ism'
+											: k === 'lastName'
+												? 'Familiya'
+												: k
+									}
+									value={owner[k]}
+									onChange={e =>
+										setOwner({ ...owner, [k]: e.target.value })
+									}
+									required
+								/>
+							))}
 							<button type="submit">Qo’shish</button>
 						</form>
 					</div>
@@ -413,6 +421,7 @@ export default function Dashboard({ type }) {
 												firstName: o.firstName,
 												lastName: o.lastName,
 												email: o.email,
+												phone: o.phone,
 												username: o.username,
 												password: '',
 											})
@@ -435,7 +444,7 @@ export default function Dashboard({ type }) {
 						<div className="card">
 							<h2>Egasini tahrirlash</h2>
 							<form className="grid" onSubmit={updateOwner}>
-								{['firstName', 'lastName', 'email', 'username'].map(k => (
+								{['firstName', 'lastName', 'email', 'phone', 'username'].map(k => (
 									<input
 										key={k}
 										value={owner[k]}

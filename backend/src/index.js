@@ -13,7 +13,7 @@ import authRoutes from './routes/auth.js'
 import bookingRoutes from './routes/bookings.js'
 import hallRoutes from './routes/halls.js'
 import { seedDemoData } from './utils/seed.js'
-import { createUser } from './utils/users.js'
+import { createUser, hashPassword } from './utils/users.js'
 
 dotenv.config()
 const app = express()
@@ -23,7 +23,9 @@ const uploadsDir = path.join(__dirname, '..', 'uploads')
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true })
 
 const isProduction = process.env.NODE_ENV === 'production'
-const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
+const allowedOrigins = (
+	process.env.CLIENT_URL || 'http://localhost:5173,http://127.0.0.1:5173'
+)
 	.split(',')
 	.map(origin => origin.trim())
 	.filter(Boolean)
@@ -113,33 +115,44 @@ app.use((err, req, res, next) => {
 })
 
 async function seedAdmin() {
-	const username = 'boshliq'
-	const password = 'ToyxonaPassword2026!'
-	const email = 'admin@toyxona.uz'
+	const seedDemo = process.env.SEED_DEMO === 'true'
+	const username =
+		process.env.ADMIN_USERNAME || (seedDemo ? 'platform_admin' : null)
+	const password =
+		process.env.ADMIN_PASSWORD || (seedDemo ? 'Admin12345!' : null)
+	if (!username || !password) return
+	if (isProduction && password === 'Admin12345!') {
+		throw new Error('Refusing to use demo ADMIN_PASSWORD in production')
+	}
 
-	try {
-		// 1. Bazada oldindan mavjud bo'lgan eski adminlarni tozalaymiz
-		await prisma.user.deleteMany({
-			where: {
-				OR: [{ username }, { email }],
-			},
-		})
-
-		// 2. Yangi va ishlaydigan admin akkauntini yaratamiz
+	const exists = await prisma.user.findFirst({
+		where: {
+			role: 'ADMIN',
+			OR: [{ username }, { email: process.env.ADMIN_EMAIL || 'admin@toyxona.uz' }],
+		},
+	})
+	if (!exists) {
 		await createUser({
-			firstName: 'Platform',
-			lastName: 'Admin',
-			email: email,
-			username: username,
-			password: password,
+			firstName: process.env.ADMIN_FIRST_NAME || 'Platform',
+			lastName: process.env.ADMIN_LAST_NAME || 'Admin',
+			email: process.env.ADMIN_EMAIL || 'admin@toyxona.uz',
+			username,
+			password,
 			role: 'admin',
 			isVerified: true,
 		})
+		console.log('Admin user created')
+		return
+	}
 
-		console.log('🔥 ADMIN FOYDALANUVCHISI MUVAFFAQIYATLI YARATILDI!')
-		console.log(`Login: ${username} | Parol: ${password}`)
-	} catch (error) {
-		console.error('⚠️ Admin yaratishda xatolik:', error.message)
+	const hash = exists.passwordHash || ''
+	const placeholder = !hash.startsWith('$2a$') && !hash.startsWith('$2b$')
+	if (process.env.SYNC_ADMIN_PASSWORD === 'true' || placeholder) {
+		await prisma.user.update({
+			where: { id: exists.id },
+			data: { passwordHash: await hashPassword(password), isVerified: true },
+		})
+		if (placeholder) console.log('Admin password hash repaired from env')
 	}
 }
 const port = process.env.PORT || 5000

@@ -38,7 +38,7 @@ export default function HallDetail() {
 				toast.error('To’yxona topilmadi')
 				nav('/')
 			})
-	}, [id])
+	}, [id, nav])
 
 	if (!data)
 		return (
@@ -90,7 +90,6 @@ export default function HallDetail() {
 				selectedServices,
 			})
 			sessionStorage.removeItem('pendingBooking')
-			const paid = created.advancePaid ?? advance
 			toast.success(paymentSuccessMessage(created.totalPrice || total))
 			nav('/bookings')
 		} catch (err) {

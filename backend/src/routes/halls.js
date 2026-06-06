@@ -192,6 +192,8 @@ router.put(
 			return res.status(403).json({ message: 'Forbidden' })
 
 		const body = buildHallBody(req.body, req.files)
+		if (!districtToDb(body.district))
+			return res.status(400).json({ message: 'Invalid district' })
 		let status = hall.status === 'APPROVED' ? 'approved' : 'pending'
 		if (req.user.role === 'admin' && req.body.status) status = req.body.status
 		else if (req.user.role === 'owner') status = 'pending'
