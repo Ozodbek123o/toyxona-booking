@@ -3,12 +3,8 @@ import jwt from 'jsonwebtoken'
 import prisma from '../lib/prisma.js'
 import { auth } from '../middleware/auth.js'
 import { formatUser } from '../utils/format.js'
-import {
-	comparePassword,
-	createUser,
-	findUserByLogin,
-} from '../utils/users.js'
 import { sendOtp } from '../utils/mail.js'
+import { comparePassword, createUser, findUserByLogin } from '../utils/users.js'
 
 const router = express.Router()
 
@@ -29,11 +25,16 @@ router.post('/register', async (req, res) => {
 			return res
 				.status(400)
 				.json({ message: 'Password must be at least 8 characters' })
+
 		const username = phone
+
+		// TUZATISH: Prisma-da 'phone' yo'q, shuning uchun 'phoneNumber' ustunidan tekshiramiz
 		const exists = await prisma.user.findFirst({
-			where: { OR: [{ phone }, { username }] },
+			where: { OR: [{ phoneNumber: phone }, { username }] },
 		})
 		if (exists) return res.status(409).json({ message: 'User already exists' })
+
+		// createUser funksiyasi 'phone' ni ichkarida 'phoneNumber'ga o'zi o'girib oladi
 		const user = await createUser({
 			firstName,
 			lastName,
@@ -93,10 +94,7 @@ router.post('/verify-otp', async (req, res) => {
 	if (!Number.isInteger(id) || id < 1)
 		return res.status(400).json({ message: 'Invalid OTP' })
 	const user = await prisma.user.findUnique({ where: { id } })
-	if (
-		!user ||
-		user.otpCode !== otp
-	)
+	if (!user || user.otpCode !== otp)
 		return res.status(400).json({ message: 'Invalid OTP' })
 	const updated = await prisma.user.update({
 		where: { id: user.id },

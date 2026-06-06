@@ -52,11 +52,9 @@ app.use(
 )
 app.use(
 	cors({
-		origin(origin, callback) {
-			if (!origin || allowedOrigins.includes(origin))
-				return callback(null, true)
-			return callback(new Error('Not allowed by CORS'))
-		},
+		origin: '*',
+		methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+		allowedHeaders: ['Content-Type', 'Authorization'],
 		credentials: true,
 	}),
 )
@@ -157,7 +155,6 @@ async function seedAdmin() {
 		if (placeholder) console.log('Admin password hash repaired from env')
 	}
 }
-
 const port = process.env.PORT || 5000
 app.listen(port, () => {
 	console.log(`API running on ${port}`)
@@ -169,6 +166,8 @@ app.listen(port, () => {
 		})
 		.catch(error => {
 			console.error('⚠️ Database connection error:', error.message)
-			console.error('The server is running, but database-dependent features will fail.')
+			console.error(
+				'The server is running, but database-dependent features will fail.',
+			)
 		})
 })
