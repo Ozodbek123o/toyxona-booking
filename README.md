@@ -90,10 +90,24 @@ Demo loginlar:
 - `npm --prefix server run db:setup` active booking uchun partial unique index yaratadi.
 - SMTP sozlansa, owner OTP email orqali yuboriladi; sozlanmasa, OTP server logida chiqadi.
 
+## Deploy (Render + Vercel)
+
+Batafsil qo'llanma: [DEPLOY.md](./DEPLOY.md)
+
+| Qism | Platforma | URL |
+|------|-----------|-----|
+| API | Render | https://toyxona-booking.onrender.com |
+| Frontend | Vercel | https://toyxona-booking-client-wms5.vercel.app |
+
+Render env: `DATABASE_URL` (External + `?sslmode=require`), `JWT_SECRET`, `CLIENT_URL`, `NODE_ENV=production`, `SEED_DEMO=false`
+
+Vercel env: `VITE_API_URL=https://toyxona-booking.onrender.com` (Root Directory: `client`)
+
 ## Tekshiruv
 
 ```bash
 npm run check
+API_URL=https://toyxona-booking.onrender.com npm run smoke-test
 npm --prefix server audit --omit=dev
 npm --prefix client audit --omit=dev
 ```

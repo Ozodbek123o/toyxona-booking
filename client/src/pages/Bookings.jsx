@@ -202,7 +202,7 @@ export default function Bookings() {
 											<button
 												type="button"
 												className="danger sm"
-												onClick={() => cancel(b._id)}
+												onClick={() => cancel(b._id ?? b.id)}
 											>
 												<CalendarX size={16} /> Bekor
 											</button>
