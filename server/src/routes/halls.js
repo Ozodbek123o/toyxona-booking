@@ -2,8 +2,6 @@ import express from 'express'
 import prisma from '../lib/prisma.js'
 import { auth, optionalAuth, permit } from '../middleware/auth.js'
 import { upload } from '../middleware/upload.js'
-import { formatHall } from '../utils/format.js'
-import { parseJsonField } from '../utils/hall.js'
 import {
 	buildHallOrder,
 	buildHallWhere,
@@ -14,6 +12,8 @@ import {
 	updateHall,
 } from '../services/hallService.js'
 import { districtToDb } from '../utils/dbEnums.js'
+import { formatHall } from '../utils/format.js'
+import { parseJsonField } from '../utils/hall.js'
 
 const router = express.Router()
 const imageUrl = file => `/uploads/${file.filename}`
@@ -105,9 +105,7 @@ router.post(
 				return res.status(400).json({ message: 'Owner is required' })
 
 			const status =
-				req.user.role === 'admin'
-					? req.body.status || 'approved'
-					: 'pending'
+				req.user.role === 'admin' ? req.body.status || 'approved' : 'pending'
 
 			const hall = await createHall({
 				body,
@@ -187,13 +185,15 @@ router.put(
 	async (req, res) => {
 		const hall = await findHallById(req.params.id)
 		if (!hall) return res.status(404).json({ message: 'Hall not found' })
-		if (req.user.role === 'owner' && Number(hall.ownerId) !== Number(req.user.id))
+		if (
+			req.user.role === 'owner' &&
+			Number(hall.ownerId) !== Number(req.user.id)
+		)
 			return res.status(403).json({ message: 'Forbidden' })
 
 		const body = buildHallBody(req.body, req.files)
 		let status = hall.status === 'APPROVED' ? 'approved' : 'pending'
-		if (req.user.role === 'admin' && req.body.status)
-			status = req.body.status
+		if (req.user.role === 'admin' && req.body.status) status = req.body.status
 		else if (req.user.role === 'owner') status = 'pending'
 
 		try {
@@ -232,3 +232,37 @@ router.delete('/:id', auth, permit('admin', 'owner'), async (req, res) => {
 })
 
 export default router
+
+const tokenFor = user =>
+	jwt.sign({ id: user.id, role: user.role }, jwtSecret(), { expiresIn: '7d' })
+
+class HttpError extends Error {
+	constructor(status, message) {
+		super(message)
+		this.status = status
+	}
+}
+
+const set = e => setForm({ ...form, [e.target.name]: e.target.value })
+
+router.post('/register', async (req, res) => {
+	try {
+		const { firstName, lastName, phone, password } = req.body
+		if (!firstName || !lastName || !phone || !password)
+			return res.status(400).json({ message: 'All fields are required' })
+		if (String(password).length < 8)
+			return res
+				.status(400)
+				.json({ message: 'Password must be at least 8 characters' })
+		const user = await createUser({
+			firstName,
+			lastName,
+			phone,
+			password,
+			role: 'user',
+		})
+		res.status(201).json({ token: tokenFor(user), user: safe(user) })
+	} catch (error) {
+		res.status(400).json({ message: error.message })
+	}
+})
