@@ -13,7 +13,7 @@ import authRoutes from './routes/auth.js'
 import bookingRoutes from './routes/bookings.js'
 import hallRoutes from './routes/halls.js'
 import { seedDemoData } from './utils/seed.js'
-import { createUser } from './utils/users.js'
+import { createUser, hashPassword } from './utils/users.js'
 
 dotenv.config()
 const app = express()
@@ -31,7 +31,14 @@ const allowedOrigins = (
 	.filter(Boolean)
 
 if (!process.env.JWT_SECRET) {
-	throw new Error('JWT_SECRET is required')
+	if (isProduction) {
+		throw new Error('JWT_SECRET is required in production')
+	} else {
+		console.warn(
+			'⚠️ WARNING: JWT_SECRET is not set. Using default secret for development.',
+		)
+		process.env.JWT_SECRET = 'dev-secret-key-12345'
+	}
 }
 if (isProduction && process.env.SEED_DEMO === 'true') {
 	throw new Error('SEED_DEMO must be false in production')
@@ -46,14 +53,18 @@ app.use(
 app.use(
 	cors({
 		origin(origin, callback) {
-			if (!origin || allowedOrigins.includes(origin)) return callback(null, true)
+			if (!origin || allowedOrigins.includes(origin))
+				return callback(null, true)
 			return callback(new Error('Not allowed by CORS'))
 		},
 		credentials: true,
 	}),
 )
 app.use(express.json({ limit: process.env.JSON_LIMIT || '1mb' }))
-app.use('/uploads', express.static(uploadsDir, { maxAge: isProduction ? '7d' : 0 }))
+app.use(
+	'/uploads',
+	express.static(uploadsDir, { maxAge: isProduction ? '7d' : 0 }),
+)
 
 const apiLimiter = rateLimit({
 	windowMs: 15 * 60 * 1000,
@@ -82,6 +93,15 @@ app.get('/api/health', async (req, res) => {
 	}
 })
 
+const clientDist = path.join(__dirname, '..', '..', 'client', 'dist')
+if (isProduction && fs.existsSync(clientDist)) {
+	app.use(express.static(clientDist))
+	app.get('*', (req, res, next) => {
+		if (req.path.startsWith('/api')) return next()
+		res.sendFile(path.join(clientDist, 'index.html'))
+	})
+}
+
 app.use((err, req, res, next) => {
 	if (err?.message === 'Not allowed by CORS') {
 		return res.status(403).json({ message: 'Origin is not allowed' })
@@ -98,15 +118,17 @@ app.use((err, req, res, next) => {
 
 async function seedAdmin() {
 	const seedDemo = process.env.SEED_DEMO === 'true'
-	const username = process.env.ADMIN_USERNAME || (seedDemo ? 'admin' : null)
-	const password = process.env.ADMIN_PASSWORD || (seedDemo ? 'Admin12345!' : null)
+	const username =
+		process.env.ADMIN_USERNAME || (seedDemo ? 'platform_admin' : null)
+	const password =
+		process.env.ADMIN_PASSWORD || (seedDemo ? 'Admin12345!' : null)
 	if (!username || !password) return
 	if (isProduction && password === 'Admin12345!') {
 		throw new Error('Refusing to use demo ADMIN_PASSWORD in production')
 	}
 
 	const exists = await prisma.user.findFirst({
-		where: { role: 'admin', username },
+		where: { role: 'ADMIN', username },
 	})
 	if (!exists) {
 		await createUser({
@@ -119,6 +141,17 @@ async function seedAdmin() {
 			isVerified: true,
 		})
 		console.log('Admin user created')
+		return
+	}
+
+	const hash = exists.passwordHash || ''
+	const placeholder = !hash.startsWith('$2a$') && !hash.startsWith('$2b$')
+	if (process.env.SYNC_ADMIN_PASSWORD === 'true' || placeholder) {
+		await prisma.user.update({
+			where: { id: exists.id },
+			data: { passwordHash: await hashPassword(password), isVerified: true },
+		})
+		if (placeholder) console.log('Admin password hash repaired from env')
 	}
 }
 

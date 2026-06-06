@@ -8,14 +8,14 @@ datasource db {
 }
 
 enum UserRole {
-  admin @map("ADMIN")
-  owner @map("OWNER")
-  user  @map("CUSTOMER")
+  ADMIN
+  OWNER
+  CUSTOMER
 
   @@map("user_role")
 }
 
-enum District {
+enum DistrictEnum {
   Chilanzar
   Yunusabad
   Mirabad
@@ -33,63 +33,63 @@ enum District {
 }
 
 enum HallStatus {
-  pending  @map("PENDING")
-  approved @map("APPROVED")
+  PENDING
+  APPROVED
 
   @@map("hall_status")
 }
 
 enum BookingStatus {
-  upcoming  @map("UPCOMING")
-  completed @map("COMPLETED")
-  cancelled @map("CANCELLED")
+  UPCOMING
+  COMPLETED
+  CANCELLED
 
   @@map("booking_status")
 }
 
 enum ServiceType {
-  singer        @map("SINGER")
-  car           @map("CAR")
-  karnay_surnay @map("KARNAY_SURNAY")
+  SINGER
+  CAR
+  KARNAY_SURNAY
 
   @@map("service_type")
 }
 
 model User {
-  id         Int      @id @default(autoincrement())
-  firstName  String   @map("first_name") @db.VarChar(100)
-  lastName   String   @map("last_name") @db.VarChar(100)
-  phone      String   @map("phone_number") @db.VarChar(20)
-  email      String   @unique @db.VarChar(150)
-  username   String   @unique @db.VarChar(50)
-  password   String   @map("password_hash") @db.VarChar(255)
-  role       UserRole @default(user)
-  isVerified Boolean  @default(false) @map("is_verified")
-  otpCode    String?  @map("otp_code") @db.VarChar(6)
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  id           Int       @id @default(autoincrement())
+  firstName    String    @map("first_name") @db.VarChar(100)
+  lastName     String    @map("last_name") @db.VarChar(100)
+  phoneNumber  String    @map("phone_number") @db.VarChar(20)
+  email        String    @unique @db.VarChar(150)
+  username     String    @unique @db.VarChar(50)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  role         UserRole  @default(CUSTOMER)
+  isVerified   Boolean   @default(false) @map("is_verified")
+  otpCode      String?   @map("otp_code") @db.VarChar(6)
+  otpExpiresAt DateTime? @map("otp_expires_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
 
-  halls    Hall[]    @relation("HallOwner")
-  bookings Booking[]
+  ownedHalls WeddingHall[] @relation("HallOwner")
+  bookings   Booking[]
 
-  @@index([role])
   @@map("users")
 }
 
-model Hall {
-  id                Int        @id @default(autoincrement())
-  ownerId           Int        @map("owner_id")
-  name              String     @db.VarChar(255)
-  district          District
+model WeddingHall {
+  id                Int          @id @default(autoincrement())
+  ownerId           Int          @map("owner_id")
+  owner             User         @relation("HallOwner", fields: [ownerId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  name              String       @db.VarChar(255)
+  district          DistrictEnum
   address           String
   capacity          Int
-  pricePerSeat      Decimal    @map("price_per_seat") @db.Decimal(12, 2)
-  phone             String     @map("phone_number") @db.VarChar(20)
-  status            HallStatus @default(pending)
-  hasKarnaySurnay   Boolean    @default(false) @map("has_karnay_surnay")
-  karnaySurnayPrice Decimal?   @map("karnay_surnay_price") @db.Decimal(12, 2)
-  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamp(6)
+  pricePerSeat      Decimal      @map("price_per_seat") @db.Decimal(12, 2)
+  phoneNumber       String       @map("phone_number") @db.VarChar(20)
+  status            HallStatus   @default(PENDING)
+  hasKarnaySurnay   Boolean      @default(false) @map("has_karnay_surnay")
+  karnaySurnayPrice Decimal?     @map("karnay_surnay_price") @db.Decimal(12, 2)
+  createdAt         DateTime     @default(now()) @map("created_at")
 
-  owner    User        @relation("HallOwner", fields: [ownerId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   images   HallImage[]
   singers  Singer[]
   cars     Car[]
@@ -97,52 +97,49 @@ model Hall {
   bookings Booking[]
 
   @@index([ownerId], map: "idx_wedding_halls_owner_id")
-  @@index([district])
-  @@index([status])
   @@map("wedding_halls")
 }
 
 model HallImage {
-  id       Int    @id @default(autoincrement())
-  hallId   Int    @map("hall_id")
-  imageUrl String @map("image_url")
-
-  hall Hall @relation(fields: [hallId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id       Int         @id @default(autoincrement())
+  hallId   Int         @map("hall_id")
+  hall     WeddingHall @relation(fields: [hallId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  imageUrl String      @map("image_url")
 
   @@index([hallId], map: "idx_hall_images_hall_id")
   @@map("hall_images")
 }
 
 model Singer {
-  id       Int     @id @default(autoincrement())
-  hallId   Int     @map("hall_id")
-  name     String  @db.VarChar(255)
-  price    Decimal @db.Decimal(12, 2)
-  imageUrl String? @map("image_url")
-  hall     Hall    @relation(fields: [hallId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id       Int         @id @default(autoincrement())
+  hallId   Int         @map("hall_id")
+  hall     WeddingHall @relation(fields: [hallId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  name     String      @db.VarChar(255)
+  price    Decimal     @db.Decimal(12, 2)
+  imageUrl String?     @map("image_url")
 
   @@index([hallId], map: "idx_singers_hall_id")
   @@map("singers")
 }
 
 model Car {
-  id       Int     @id @default(autoincrement())
-  hallId   Int     @map("hall_id")
-  brand    String  @db.VarChar(255)
-  price    Decimal @db.Decimal(12, 2)
-  imageUrl String? @map("image_url")
-  hall     Hall    @relation(fields: [hallId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id       Int         @id @default(autoincrement())
+  hallId   Int         @map("hall_id")
+  hall     WeddingHall @relation(fields: [hallId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  brand    String      @db.VarChar(255)
+  price    Decimal     @db.Decimal(12, 2)
+  imageUrl String?     @map("image_url")
 
   @@index([hallId], map: "idx_cars_hall_id")
   @@map("cars")
 }
 
 model Menu {
-  id       Int     @id @default(autoincrement())
-  hallId   Int     @map("hall_id")
-  name     String  @db.VarChar(255)
-  imageUrl String? @map("image_url")
-  hall     Hall    @relation(fields: [hallId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id       Int         @id @default(autoincrement())
+  hallId   Int         @map("hall_id")
+  hall     WeddingHall @relation(fields: [hallId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  name     String      @db.VarChar(255)
+  imageUrl String?     @map("image_url")
 
   @@index([hallId], map: "idx_menus_hall_id")
   @@map("menus")
@@ -150,20 +147,20 @@ model Menu {
 
 model Booking {
   id          Int           @id @default(autoincrement())
-  userId      Int           @map("customer_id")
+  customerId  Int           @map("customer_id")
+  customer    User          @relation(fields: [customerId], references: [id], onUpdate: Cascade, onDelete: Restrict)
   hallId      Int           @map("hall_id")
-  date        DateTime      @map("booking_date") @db.Date
-  seats       Int           @map("guest_count")
+  hall        WeddingHall   @relation(fields: [hallId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  bookingDate DateTime      @map("booking_date") @db.Date
+  guestCount  Int           @map("guest_count")
   totalPrice  Decimal       @map("total_price") @db.Decimal(12, 2)
-  advancePaid Decimal       @map("deposit_paid") @db.Decimal(12, 2)
-  status      BookingStatus @default(upcoming)
-  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamp(6)
+  depositPaid Decimal       @map("deposit_paid") @db.Decimal(12, 2)
+  status      BookingStatus @default(UPCOMING)
+  createdAt   DateTime      @default(now()) @map("created_at")
 
-  user     User             @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  hall     Hall             @relation(fields: [hallId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   services BookingService[]
 
-  @@index([userId], map: "idx_bookings_customer_id")
+  @@index([customerId], map: "idx_bookings_customer_id")
   @@index([hallId], map: "idx_bookings_hall_id")
   @@map("bookings")
 }
@@ -171,11 +168,10 @@ model Booking {
 model BookingService {
   id            Int         @id @default(autoincrement())
   bookingId     Int         @map("booking_id")
+  booking       Booking     @relation(fields: [bookingId], references: [id], onUpdate: Cascade, onDelete: Cascade)
   serviceType   ServiceType @map("service_type")
   serviceItemId Int?        @map("service_item_id")
   price         Decimal     @db.Decimal(12, 2)
-
-  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   @@index([bookingId], map: "idx_booking_services_booking_id")
   @@index([serviceType, serviceItemId], map: "idx_booking_services_type_item")

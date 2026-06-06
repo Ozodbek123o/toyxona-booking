@@ -1,173 +1,153 @@
-import { randomUUID } from 'crypto'
-
-/** Frontend MongoDB-style _id qo‘llab-quvvatlash */
-export const hallInclude = {
-	owner: {
-		select: {
-			id: true,
-			firstName: true,
-			lastName: true,
-			username: true,
-			email: true,
-			phone: true,
-			role: true,
-			isVerified: true,
-			createdAt: true,
-		},
-	},
-	images: true,
-	singers: true,
-	cars: true,
-	menus: true,
-}
-
-const toMoney = value => (value == null ? value : Number(value))
-const stringId = value => (value == null ? value : String(value))
+import {
+	bookingStatusToApi,
+	decimalToNumber,
+	districtFromDb,
+	hallStatusToApi,
+	roleToApi,
+} from './dbEnums.js'
 
 export function formatUser(user) {
 	if (!user) return null
-	const { password, otpCode, ...safe } = user
+	const {
+		passwordHash,
+		otpCode,
+		otpExpiresAt,
+		phoneNumber,
+		firstName,
+		lastName,
+		isVerified,
+		createdAt,
+		...rest
+	} = user
 	return {
-		...safe,
-		_id: stringId(user.id),
+		...rest,
 		id: user.id,
+		_id: user.id,
+		firstName,
+		lastName,
+		phone: phoneNumber,
+		role: roleToApi(user.role),
+		isVerified,
+		createdAt,
 	}
 }
 
-export function formatHall(hall, owner) {
+function mapImageUrl(url) {
+	if (!url) return null
+	return { url, name: url.split('/').pop() || 'image' }
+}
+
+export function formatHall(hall) {
 	if (!hall) return null
-	const services = normalizedServices(hall)
-	const photos = Array.isArray(hall.images)
-		? hall.images.map(image => ({
-				_id: stringId(image.id),
-				id: image.id,
-				url: image.imageUrl,
-				name: `hall-${image.id}`,
-			}))
-		: hall.photos || []
-	const out = {
+
+	const photos = (hall.images || []).map(img => mapImageUrl(img.imageUrl))
+	const karnayPrice = decimalToNumber(hall.karnaySurnayPrice)
+
+	return {
 		id: hall.id,
-		_id: stringId(hall.id),
+		_id: hall.id,
 		name: hall.name,
-		description:
-			hall.description ||
-			`${hall.district} tumanidagi ${hall.capacity} o‘rinli to‘yxona.`,
-		badge: hall.badge || (hall.status === 'approved' ? 'Tasdiqlangan' : 'Kutilmoqda'),
-		rating: hall.rating || 4.7,
-		amenities: hall.amenities || ['Keng zal', 'Parking', 'Professional xizmat'],
-		photos,
-		district: hall.district,
+		description: hall.description || '',
+		badge: hall.badge || 'Premium',
+		rating: hall.rating ?? 4.7,
+		amenities: hall.amenities || [],
+		district: districtFromDb(hall.district),
 		address: hall.address,
 		capacity: hall.capacity,
-		pricePerSeat: toMoney(hall.pricePerSeat),
-		phone: hall.phone,
+		pricePerSeat: decimalToNumber(hall.pricePerSeat),
+		phone: hall.phoneNumber,
+		status: hallStatusToApi(hall.status),
 		ownerId: hall.ownerId,
-		owner: undefined,
-		status: hall.status,
-		hasKarnaySurnay: hall.hasKarnaySurnay,
-		karnaySurnayPrice: toMoney(hall.karnaySurnayPrice),
+		owner: hall.owner ? formatUser(hall.owner) : undefined,
+		photos,
+		services: {
+			singers: (hall.singers || []).map(s => ({
+				id: s.id,
+				_id: s.id,
+				name: s.name,
+				price: decimalToNumber(s.price),
+				photo: s.imageUrl,
+			})),
+			cars: (hall.cars || []).map(c => ({
+				id: c.id,
+				_id: c.id,
+				brand: c.brand,
+				price: decimalToNumber(c.price),
+				photo: c.imageUrl,
+			})),
+			menus: (hall.menus || []).map(m => ({
+				id: m.id,
+				_id: m.id,
+				name: m.name,
+				price: 0,
+				photo: m.imageUrl,
+			})),
+			karnaySurnay: {
+				available: Boolean(hall.hasKarnaySurnay),
+				price: hall.hasKarnaySurnay ? karnayPrice : 0,
+			},
+		},
 		createdAt: hall.createdAt,
-		id: hall.id,
-		services,
 	}
-	if (owner) out.owner = formatUser(owner)
-	else if (hall.owner) out.owner = formatUser(hall.owner)
-	return out
 }
 
 export function formatBooking(booking, extra = {}) {
 	if (!booking) return null
+	const date = booking.bookingDate || booking.date
 	return {
 		id: booking.id,
-		_id: stringId(booking.id),
+		_id: booking.id,
 		hallId: booking.hallId,
-		userId: booking.userId,
-		date: booking.date,
-		seats: booking.seats,
-		selectedServices: selectedServicesFromRows(booking.services),
-		totalPrice: toMoney(booking.totalPrice),
-		advancePaid: toMoney(booking.advancePaid),
+		userId: booking.customerId,
+		customerId: booking.customerId,
+		date,
+		bookingDate: date,
+		seats: booking.guestCount,
+		guestCount: booking.guestCount,
+		totalPrice: decimalToNumber(booking.totalPrice),
+		advancePaid: decimalToNumber(booking.depositPaid),
+		depositPaid: decimalToNumber(booking.depositPaid),
 		status: booking.status,
-		createdAt: booking.createdAt,
-		id: booking.id,
+		dbStatus: booking.status,
+		computedStatus:
+			extra.computedStatus ||
+			bookingStatusToApi(booking.status, date),
+		selectedServices: extra.selectedServices || booking.selectedServices,
 		hall: booking.hall ? formatHall(booking.hall) : booking.hall,
-		user: booking.user ? formatUser(booking.user) : booking.user,
+		user: booking.customer
+			? formatUser(booking.customer)
+			: booking.user
+				? formatUser(booking.user)
+				: booking.user,
+		createdAt: booking.createdAt,
 		...extra,
 	}
 }
 
-function withServiceIds(services) {
-	if (!services || typeof services !== 'object') return services
-	const s = { ...services }
-	for (const key of ['singers', 'menus', 'cars']) {
-		if (Array.isArray(s[key])) {
-			s[key] = s[key].map(item => ({
-				...item,
-				_id: item._id || item.id || randomUUID(),
-			}))
-		}
-	}
-	return s
-}
-
-export function ensureServiceIds(services) {
-	const s = services || {}
-	const addIds = arr =>
-		(arr || []).map(item => ({
-			...item,
-			_id: item._id || item.id || randomUUID(),
-		}))
+export function selectedServicesFromBody(value = {}) {
+	const toIds = list =>
+		Array.isArray(list) ? list.map(item => Number(item)).filter(Boolean) : []
 	return {
-		singers: addIds(s.singers),
-		karnaySurnay: s.karnaySurnay || { available: false, price: 0 },
-		menus: addIds(s.menus),
-		cars: addIds(s.cars),
+		singers: toIds(value.singers),
+		cars: toIds(value.cars),
+		menus: toIds(value.menus),
+		karnaySurnay: Boolean(value.karnaySurnay),
 	}
 }
 
-function normalizedServices(hall) {
-	if (hall.services) return withServiceIds(hall.services)
-	return {
-		singers: (hall.singers || []).map(singer => ({
-			_id: stringId(singer.id),
-			id: singer.id,
-			name: singer.name,
-			price: toMoney(singer.price),
-			photo: singer.imageUrl,
-			imageUrl: singer.imageUrl,
-		})),
-		karnaySurnay: {
-			available: Boolean(hall.hasKarnaySurnay),
-			price: toMoney(hall.karnaySurnayPrice) || 0,
-		},
-		menus: (hall.menus || []).map(menu => ({
-			_id: stringId(menu.id),
-			id: menu.id,
-			name: menu.name,
-			photo: menu.imageUrl,
-			imageUrl: menu.imageUrl,
-			price: 0,
-		})),
-		cars: (hall.cars || []).map(car => ({
-			_id: stringId(car.id),
-			id: car.id,
-			brand: car.brand,
-			price: toMoney(car.price),
-			photo: car.imageUrl,
-			imageUrl: car.imageUrl,
-		})),
-	}
-}
-
-function selectedServicesFromRows(rows = []) {
-	return {
-		singers: rows
-			.filter(row => row.serviceType === 'singer')
-			.map(row => stringId(row.serviceItemId)),
-		cars: rows
-			.filter(row => row.serviceType === 'car')
-			.map(row => stringId(row.serviceItemId)),
+export function selectedServicesFromBookingRows(services = []) {
+	const selected = {
+		singers: [],
+		cars: [],
 		menus: [],
-		karnaySurnay: rows.some(row => row.serviceType === 'karnay_surnay'),
+		karnaySurnay: false,
 	}
+	for (const row of services) {
+		if (row.serviceType === 'SINGER' && row.serviceItemId)
+			selected.singers.push(row.serviceItemId)
+		if (row.serviceType === 'CAR' && row.serviceItemId)
+			selected.cars.push(row.serviceItemId)
+		if (row.serviceType === 'KARNAY_SURNAY') selected.karnaySurnay = true
+	}
+	return selected
 }

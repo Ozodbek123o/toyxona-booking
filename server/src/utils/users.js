@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs'
 import prisma from '../lib/prisma.js'
+import { roleToApi, roleToDb } from './dbEnums.js'
 import { formatUser } from './format.js'
 
 export async function hashPassword(password) {
@@ -7,24 +8,40 @@ export async function hashPassword(password) {
 }
 
 export async function comparePassword(user, password) {
-	return bcrypt.compare(password, user.password)
+	return bcrypt.compare(password, user.passwordHash)
+}
+
+export function phoneToEmail(phone) {
+	const digits = String(phone).replace(/\D/g, '')
+	return `user_${digits || 'local'}@toyxona.local`
+}
+
+export function phoneFromLoginKey(key) {
+	const digits = String(key || '').replace(/\D/g, '')
+	if (digits.length >= 9) return `+998${digits.slice(-9)}`
+	return null
 }
 
 export async function createUser(data) {
-	const password = await hashPassword(data.password)
-	const phone = data.phone || '+998000000000'
-	const email =
-		data.email?.toLowerCase() ||
-		`${String(data.username || phone).replace(/\W/g, '')}@toyxona.local`
+	const passwordHash = await hashPassword(data.password)
+	const username = data.username || data.phone || data.phoneNumber
+	const phoneNumber =
+		data.phone ||
+		data.phoneNumber ||
+		phoneFromLoginKey(username) ||
+		phoneFromLoginKey(data.email) ||
+		`+99890${String(Date.now()).slice(-7)}`
+	const email = (data.email || phoneToEmail(phoneNumber)).toLowerCase()
+
 	const user = await prisma.user.create({
 		data: {
 			firstName: data.firstName,
 			lastName: data.lastName,
-			phone,
+			phoneNumber,
 			email,
-			username: data.username || phone,
-			password,
-			role: data.role || 'user',
+			username,
+			passwordHash,
+			role: roleToDb(data.role || 'user'),
 			isVerified: data.isVerified ?? false,
 		},
 	})
@@ -37,13 +54,15 @@ export async function findUserByLogin(key) {
 	const lower = k.toLowerCase()
 	return prisma.user.findFirst({
 		where: {
-			OR: [{ username: k }, { phone: k }, { email: lower }],
+			OR: [{ username: k }, { phoneNumber: k }, { email: lower }],
 		},
 	})
 }
 
 export async function getUserById(id) {
-	const user = await prisma.user.findUnique({ where: { id: Number(id) } })
+	const userId = Number(id)
+	if (!Number.isInteger(userId)) return null
+	const user = await prisma.user.findUnique({ where: { id: userId } })
 	return user ? formatUser(user) : null
 }
 
@@ -54,7 +73,7 @@ export async function getAuthUser(id) {
 			id: true,
 			firstName: true,
 			lastName: true,
-			phone: true,
+			phoneNumber: true,
 			email: true,
 			username: true,
 			role: true,
@@ -62,5 +81,15 @@ export async function getAuthUser(id) {
 		},
 	})
 	if (!user) return null
-	return { ...user, _id: user.id }
+	return {
+		id: user.id,
+		_id: user.id,
+		firstName: user.firstName,
+		lastName: user.lastName,
+		phone: user.phoneNumber,
+		email: user.email,
+		username: user.username,
+		role: roleToApi(user.role),
+		isVerified: user.isVerified,
+	}
 }

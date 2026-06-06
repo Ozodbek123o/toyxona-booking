@@ -1,0 +1,6 @@
+{
+	"files.associations": {
+		"server/prisma/*.pgsql.sql": "pgsql",
+		"*.pgsql.sql": "pgsql"
+	}
+}
