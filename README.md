@@ -11,17 +11,17 @@ ulangan, active bookinglar esa bitta to'yxona/bitta sana uchun unique qilinadi.
 
 - Node.js 20.19+ yoki 22.12+
 - PostgreSQL connection string
-- `server/.env` ichida kuchli `JWT_SECRET`
+- `backend/.env` ichida kuchli `JWT_SECRET`
 
 ## Lokal ishga tushirish
 
 ```bash
 npm run install:all
-copy server\.env.example server\.env
+copy backend\.env.example backend\.env
 copy client\.env.example client\.env
 ```
 
-`server/.env` ichida kamida quyidagilarni to'ldiring:
+`backend/.env` ichida kamida quyidagilarni to'ldiring:
 
 ```env
 DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require
@@ -33,13 +33,13 @@ SEED_DEMO=false
 PostgreSQL schema (DDL + indekslar) va Prisma client:
 
 ```bash
-npm --prefix server run db:setup
+npm --prefix backend run db:setup
 ```
 
 Agar SQL seed faylida placeholder `password_hash` bo‘lsa, demo parollarni yangilang:
 
 ```bash
-npm --prefix server run db:reset-passwords
+npm --prefix backend run db:reset-passwords
 ```
 
 Ishga tushirish:
@@ -56,11 +56,11 @@ npm run dev
 
 SQL seed (`users`, `wedding_halls`, …) yoki `SEED_DEMO=true` bilan yaratilgan demo ma’lumotlar:
 
-| Rol | Login | Parol |
-|-----|-------|-------|
+| Rol   | Login            | Parol         |
+| ----- | ---------------- | ------------- |
 | Admin | `platform_admin` | `Admin12345!` |
-| Egasi | `toyxona_owner` | `Owner12345!` |
-| Mijoz | `ozod_customer` | `User12345!` |
+| Egasi | `toyxona_owner`  | `Owner12345!` |
+| Mijoz | `ozod_customer`  | `User12345!`  |
 
 `SEED_DEMO=true` bo‘lsa va bazada to‘yxona bo‘lmasa, qo‘shimcha demo zallar ham yaratiladi. Productionda `SEED_DEMO=false` qoldiring va admin hisobni env orqali yarating:
 
@@ -86,28 +86,64 @@ Demo loginlar:
 
 - `JWT_SECRET` majburiy va uzun random qiymat bo'lishi kerak.
 - `CLIENT_URL` deploy qilingan frontend domeni bo'lishi kerak; bir nechta origin vergul bilan yoziladi.
-- `server/uploads` uchun persistent disk yoki object storage kerak.
-- `npm --prefix server run db:setup` active booking uchun partial unique index yaratadi.
+- `backend/uploads` uchun persistent disk yoki object storage kerak.
+- `npm --prefix backend run db:setup` active booking uchun partial unique index yaratadi.
 - SMTP sozlansa, owner OTP email orqali yuboriladi; sozlanmasa, OTP server logida chiqadi.
 
 ## Deploy (Render + Vercel)
 
-Batafsil qo'llanma: [DEPLOY.md](./DEPLOY.md)
+Loyiha ikki qismdan iborat: **API** (`backend/`) Renderda, **frontend** (`client/`) Vercelda.
 
-| Qism | Platforma | URL |
-|------|-----------|-----|
-| API | Render | https://toyxona-booking.onrender.com |
-| Frontend | Vercel | https://toyxona-booking-client-wms5.vercel.app |
+### Render (API) Sozlamalari
 
-Render env: `DATABASE_URL` (External + `?sslmode=require`), `JWT_SECRET`, `CLIENT_URL`, `NODE_ENV=production`, `SEED_DEMO=false`
+1. **Environment Variables**:
+   - `DATABASE_URL`: PostgreSQL External URL + `?sslmode=require`
+   - `JWT_SECRET`: Kamida 32 belgidan iborat maxfiy kalit
+   - `CLIENT_URL`: Vercel'dagi frontend manzilingiz
+   - `NODE_ENV`: `production`
 
-Vercel env: `VITE_API_URL=https://toyxona-booking.onrender.com` (Root Directory: `client`)
+2. **Build & Start**:
+   - Build Command: `npm install && npm --workspace backend run db:setup`
+   - Start Command: `npm --workspace backend start`
+
+### Vercel (Frontend) Sozlamalari
+
+1. **Environment Variables**:
+   - `VITE_API_URL`: Render'dagi API manzilingiz (masalan: `https://toyxona-booking.onrender.com`)
+2. **Settings**:
+   - Root Directory: `client`
+   - Framework Preset: `Vite`
+
+## Loyiha Strukturasi
+
+```text
+├── client/              # Frontend (React + Vite)
+│   ├── src/
+│   │   ├── api/         # Axios instansiyasi va API sozlamalari
+│   │   ├── components/  # Qayta ishlatiluvchi UI komponentlar
+│   │   ├── context/     # AuthContext (global holat)
+│   │   ├── pages/       # Sahifalar (Halls, Login, Bookings, va h.k.)
+│   │   └── utils/       # Yordamchi funksiyalar
+├── backend/             # Backend (Node.js + Express + Prisma)
+│   ├── prisma/          # Ma'lumotlar bazasi sxemasi va migratsiyalar
+│   ├── scripts/         # Ma'muriy skriptlar (parol tiklash, testlar)
+│   ├── src/
+│   │   ├── config/      # DB ulanish sozlamalari
+│   │   ├── middleware/  # Auth va fayl yuklash middleware'lari
+│   │   ├── routes/      # API yo'nalishlari (Express routes)
+│   │   ├── services/    # Biznes mantiq (Database queries)
+│   │   └── utils/       # Formatlash va yordamchi mantiq
+├── scripts/             # Monorepo darajasidagi skriptlar
+├── render.yaml          # Render platformasi uchun IaC fayli
+└── package.json         # Workspace va umumiy skriptlar
+```
 
 ## Tekshiruv
 
 ```bash
+# Barcha qismlarni tekshirish
 npm run check
+
+# API ishlashini tekshirish (Render'da)
 API_URL=https://toyxona-booking.onrender.com npm run smoke-test
-npm --prefix server audit --omit=dev
-npm --prefix client audit --omit=dev
 ```
