@@ -72,8 +72,9 @@ async function createHallWithServices({
 }
 
 export async function seedDemoData() {
-	const hallCount = await prisma.weddingHall.count()
-	if (hallCount > 0) return
+	// Faqat to'yxonalar emas, foydalanuvchilar borligini ham tekshiramiz
+	const userCount = await prisma.user.count({ where: { role: { in: ['OWNER', 'CUSTOMER'] } } })
+	if (userCount > 0) return
 
 	const owners = await Promise.all([
 		createUser({

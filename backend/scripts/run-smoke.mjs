@@ -52,9 +52,9 @@ if (hallId) {
 }
 
 const logins = [
-	['platform_admin', 'Admin12345!', 'admin'],
-	['ozod_customer', 'User12345!', 'user'],
-	['toyxona_owner', 'Owner12345!', 'owner'],
+	['admin', 'Admin12345!', 'admin'],
+	['+998901112233', 'User12345!', 'user'],
+	['aziz_owner', 'Owner12345!', 'owner'],
 ]
 
 let customerToken = null

@@ -125,7 +125,10 @@ async function seedAdmin() {
 	}
 
 	const exists = await prisma.user.findFirst({
-		where: { role: 'ADMIN', username },
+		where: {
+			role: 'ADMIN',
+			OR: [{ username }, { email: process.env.ADMIN_EMAIL || 'admin@toyxona.uz' }],
+		},
 	})
 	if (!exists) {
 		await createUser({
@@ -153,14 +156,16 @@ async function seedAdmin() {
 }
 
 const port = process.env.PORT || 5000
-connectDb()
-	.then(seedAdmin)
-	.then(() => {
-		if (process.env.SEED_DEMO === 'true') return seedDemoData()
-		return null
-	})
-	.then(() => app.listen(port, () => console.log(`API running on ${port}`)))
-	.catch(error => {
-		console.error(error)
-		process.exit(1)
-	})
+app.listen(port, () => {
+	console.log(`API running on ${port}`)
+	connectDb()
+		.then(seedAdmin)
+		.then(() => {
+			if (process.env.SEED_DEMO === 'true') return seedDemoData()
+			return null
+		})
+		.catch(error => {
+			console.error('⚠️ Database connection error:', error.message)
+			console.error('The server is running, but database-dependent features will fail.')
+		})
+})

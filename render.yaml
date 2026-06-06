@@ -4,8 +4,8 @@ services:
     runtime: node
     plan: free
     branch: main
-    buildCommand: npm install && npm --workspace server run db:setup
-    startCommand: npm --workspace server start
+    buildCommand: npm install && npm --workspace backend run db:setup
+    startCommand: npm --workspace backend start
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
