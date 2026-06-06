@@ -50,11 +50,9 @@ app.use(
 )
 app.use(
 	cors({
-		origin(origin, callback) {
-			if (!origin || allowedOrigins.includes(origin))
-				return callback(null, true)
-			return callback(new Error('Not allowed by CORS'))
-		},
+		origin: '*',
+		methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+		allowedHeaders: ['Content-Type', 'Authorization'],
 		credentials: true,
 	}),
 )
@@ -127,7 +125,10 @@ async function seedAdmin() {
 	const exists = await prisma.user.findFirst({
 		where: {
 			role: 'ADMIN',
-			OR: [{ username }, { email: process.env.ADMIN_EMAIL || 'admin@toyxona.uz' }],
+			OR: [
+				{ username },
+				{ email: process.env.ADMIN_EMAIL || 'admin@toyxona.uz' },
+			],
 		},
 	})
 	if (!exists) {
@@ -166,6 +167,8 @@ app.listen(port, () => {
 		})
 		.catch(error => {
 			console.error('⚠️ Database connection error:', error.message)
-			console.error('The server is running, but database-dependent features will fail.')
+			console.error(
+				'The server is running, but database-dependent features will fail.',
+			)
 		})
 })
