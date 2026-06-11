@@ -126,37 +126,52 @@ async function seedAdmin() {
 		throw new Error('Refusing to use demo ADMIN_PASSWORD in production')
 	}
 
-	const existing = await prisma.user.findFirst({
-		where: { OR: [{ username }, { email }] },
-	})
+	const shouldSyncPassword = process.env.SYNC_ADMIN_PASSWORD === 'true'
 
-	if (!existing) {
-		await createUser({
-			firstName: process.env.ADMIN_FIRST_NAME || 'Platform',
-			lastName: process.env.ADMIN_LAST_NAME || 'Admin',
-			email,
-			username,
-			password,
-			role: 'admin',
-			isVerified: true,
-		})
-		console.log('Admin user created')
-		return
+	let byUsername = await prisma.user.findFirst({ where: { username } })
+	let byEmail = await prisma.user.findFirst({ where: { email } })
+	let target = byUsername || byEmail
+
+	if (!target) {
+		try {
+			await createUser({
+				firstName: process.env.ADMIN_FIRST_NAME || 'Platform',
+				lastName: process.env.ADMIN_LAST_NAME || 'Admin',
+				email,
+				username,
+				password,
+				role: 'admin',
+				isVerified: true,
+			})
+			console.log('Admin user created')
+			return
+		} catch (error) {
+			if (error?.code !== 'P2002') throw error
+			byUsername = await prisma.user.findFirst({ where: { username } })
+			byEmail = await prisma.user.findFirst({ where: { email } })
+			target = byUsername || byEmail
+			if (!target) throw error
+		}
 	}
 
-	const shouldSyncPassword = process.env.SYNC_ADMIN_PASSWORD === 'true'
+	const data = {
+		role: 'ADMIN',
+		isVerified: true,
+		...(shouldSyncPassword
+			? { passwordHash: await hashPassword(password) }
+			: {}),
+	}
+
+	const usernameTakenByOther = byUsername && byUsername.id !== target.id
+	const emailTakenByOther = byEmail && byEmail.id !== target.id
+	if (!usernameTakenByOther) data.username = username
+	if (!emailTakenByOther) data.email = email
+
 	await prisma.user.update({
-		where: { id: existing.id },
-		data: {
-			role: 'ADMIN',
-			isVerified: true,
-			username,
-			email,
-			...(shouldSyncPassword
-				? { passwordHash: await hashPassword(password) }
-				: {}),
-		},
+		where: { id: target.id },
+		data,
 	})
+	console.log('Admin user ready')
 }
 const port = process.env.PORT || 5000
 app.listen(port, () => {
