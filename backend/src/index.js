@@ -13,7 +13,7 @@ import authRoutes from './routes/auth.js'
 import bookingRoutes from './routes/bookings.js'
 import hallRoutes from './routes/halls.js'
 import { seedDemoData } from './utils/seed.js'
-import { createUser } from './utils/users.js'
+import { createUser, hashPassword } from './utils/users.js'
 
 dotenv.config()
 const app = express()
@@ -50,10 +50,16 @@ app.use(
 )
 app.use(
 	cors({
-		origin: '*',
-		methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+		origin(origin, callback) {
+			if (!origin) return callback(null, true)
+			if (allowedOrigins.includes(origin)) return callback(null, true)
+			if (origin.endsWith('.vercel.app')) return callback(null, true)
+			return callback(new Error('Not allowed by CORS'))
+		},
+		methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 		allowedHeaders: ['Content-Type', 'Authorization'],
 		credentials: true,
+		optionsSuccessStatus: 204,
 	}),
 )
 app.use(express.json({ limit: process.env.JSON_LIMIT || '1mb' }))
