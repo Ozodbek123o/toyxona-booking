@@ -1,8 +1,8 @@
 import prisma from '../lib/prisma.js'
 import { districtToDb } from './dbEnums.js'
 import { normalizeDate } from './hall.js'
-import { createUser } from './users.js'
 import { advanceAmount, calculateTotal } from './price.js'
+import { createUser } from './users.js'
 
 const photos = [
 	'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=1200&q=80',
@@ -72,8 +72,9 @@ async function createHallWithServices({
 }
 
 export async function seedDemoData() {
-	// Faqat to'yxonalar emas, foydalanuvchilar borligini ham tekshiramiz
-	const userCount = await prisma.user.count({ where: { role: { in: ['OWNER', 'CUSTOMER'] } } })
+	const userCount = await prisma.user.count({
+		where: { role: { in: ['OWNER', 'CUSTOMER'] } },
+	})
 	if (userCount > 0) return
 
 	const owners = await Promise.all([
@@ -139,10 +140,7 @@ export async function seedDemoData() {
 			{ brand: 'Mercedes-Benz S-Class', price: 1500000 },
 			{ brand: 'Rolls-Royce Ghost', price: 4000000 },
 		],
-		menus: [
-			{ name: 'Palov standart menu' },
-			{ name: 'Yevropa premium menu' },
-		],
+		menus: [{ name: 'Palov standart menu' }, { name: 'Yevropa premium menu' }],
 	})
 
 	const formattedHall = {
@@ -206,7 +204,5 @@ export async function seedDemoData() {
 		menus: [{ name: 'Milliy to‘y menyusi' }],
 	})
 
-	console.log(
-		`Demo data seeded (hall ${hall1.id}, booking ${booking.id})`,
-	)
+	console.log(`Demo data seeded (hall ${hall1.id}, booking ${booking.id})`)
 }
