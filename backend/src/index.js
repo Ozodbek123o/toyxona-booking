@@ -113,34 +113,50 @@ app.use((err, req, res, next) => {
 })
 
 async function seedAdmin() {
-	const username = 'boshliq'
-	const password = 'ToyxonaPassword2026!'
-	const email = 'admin@toyxona.uz'
+	const seedDemo = process.env.SEED_DEMO === 'true'
+	const username = process.env.ADMIN_USERNAME || (seedDemo ? 'admin' : null)
+	const password =
+		process.env.ADMIN_PASSWORD || (seedDemo ? 'Admin12345!' : null)
+	const email = (
+		process.env.ADMIN_EMAIL || (seedDemo ? 'admin@toyxona.uz' : null)
+	)?.toLowerCase()
 
-	try {
-		// 1. Bazada oldindan mavjud bo'lgan eski adminlarni tozalaymiz
-		await prisma.user.deleteMany({
-			where: {
-				OR: [{ username }, { email }],
-			},
-		})
+	if (!username || !password || !email) return
+	if (isProduction && password === 'Admin12345!') {
+		throw new Error('Refusing to use demo ADMIN_PASSWORD in production')
+	}
 
-		// 2. Yangi va ishlaydigan admin akkauntini yaratamiz
+	const existing = await prisma.user.findFirst({
+		where: { OR: [{ username }, { email }] },
+	})
+
+	if (!existing) {
 		await createUser({
-			firstName: 'Platform',
-			lastName: 'Admin',
-			email: email,
-			username: username,
-			password: password,
+			firstName: process.env.ADMIN_FIRST_NAME || 'Platform',
+			lastName: process.env.ADMIN_LAST_NAME || 'Admin',
+			email,
+			username,
+			password,
 			role: 'admin',
 			isVerified: true,
 		})
-
-		console.log('🔥 ADMIN FOYDALANUVCHISI MUVAFFAQIYATLI YARATILDI!')
-		console.log(`Login: ${username} | Parol: ${password}`)
-	} catch (error) {
-		console.error('⚠️ Admin yaratishda xatolik:', error.message)
+		console.log('Admin user created')
+		return
 	}
+
+	const shouldSyncPassword = process.env.SYNC_ADMIN_PASSWORD === 'true'
+	await prisma.user.update({
+		where: { id: existing.id },
+		data: {
+			role: 'ADMIN',
+			isVerified: true,
+			username,
+			email,
+			...(shouldSyncPassword
+				? { passwordHash: await hashPassword(password) }
+				: {}),
+		},
+	})
 }
 const port = process.env.PORT || 5000
 app.listen(port, () => {

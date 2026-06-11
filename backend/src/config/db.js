@@ -10,7 +10,7 @@ function sleep(ms) {
 export async function connectDb() {
 	if (!process.env.DATABASE_URL) {
 		throw new Error(
-			'DATABASE_URL is required. Set it in server/.env (Render PostgreSQL External URL + ?sslmode=require). See DEPLOY.md.',
+			'DATABASE_URL is required. Set it in backend/.env (Render PostgreSQL External URL + ?sslmode=require).',
 		)
 	}
 
