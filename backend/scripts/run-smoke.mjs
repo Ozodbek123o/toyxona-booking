@@ -51,13 +51,21 @@ if (hallId) {
 	)
 }
 
+const adminLogin = process.env.SMOKE_ADMIN_LOGIN || process.env.ADMIN_USERNAME || 'admin'
+const adminPassword = process.env.SMOKE_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'Admin12345!'
+const userLogin = process.env.SMOKE_USER_LOGIN || '+998901112233'
+const userPassword = process.env.SMOKE_USER_PASSWORD || 'User12345!'
+const ownerLogin = process.env.SMOKE_OWNER_LOGIN || process.env.OWNER_USERNAME || 'aziz_owner'
+const ownerPassword = process.env.SMOKE_OWNER_PASSWORD || process.env.OWNER_PASSWORD || 'Owner12345!'
+
 const logins = [
-	['admin', 'Admin12345!', 'admin'],
-	['+998901112233', 'User12345!', 'user'],
-	['aziz_owner', 'Owner12345!', 'owner'],
+	[adminLogin, adminPassword, 'admin'],
+	[userLogin, userPassword, 'user'],
+	[ownerLogin, ownerPassword, 'owner'],
 ]
 
 let customerToken = null
+let ownerToken = null
 for (const [login, password, role] of logins) {
 	const r = await req('/api/auth/login', {
 		method: 'POST',
@@ -67,6 +75,7 @@ for (const [login, password, role] of logins) {
 	const good = r.status === 200 && r.data?.token && r.data?.user?.role === role
 	tally(ok(`Login ${role}`, good, r.data?.message || login))
 	if (role === 'user') customerToken = r.data?.token
+	if (role === 'owner') ownerToken = r.data?.token
 }
 
 if (customerToken && hallId) {
@@ -103,14 +112,9 @@ if (customerToken && hallId) {
 	)
 }
 
-const ownerLogin = await req('/api/auth/login', {
-	method: 'POST',
-	headers: { 'Content-Type': 'application/json' },
-	body: JSON.stringify({ login: 'toyxona_owner', password: 'Owner12345!' }),
-})
-if (ownerLogin.data?.token) {
+if (ownerToken) {
 	const ownerHalls = await req('/api/halls', {
-		headers: { Authorization: `Bearer ${ownerLogin.data.token}` },
+		headers: { Authorization: `Bearer ${ownerToken}` },
 	})
 	tally(
 		ok(

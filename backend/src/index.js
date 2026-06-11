@@ -173,14 +173,155 @@ async function seedAdmin() {
 	})
 	console.log('Admin user ready')
 }
+
+async function seedOwner() {
+	const seedDemo = process.env.SEED_DEMO === 'true'
+	const username =
+		process.env.OWNER_USERNAME || (seedDemo ? 'aziz_owner' : null)
+	const password =
+		process.env.OWNER_PASSWORD || (seedDemo ? 'Owner12345!' : null)
+	const email = (
+		process.env.OWNER_EMAIL || (seedDemo ? 'owner@toyxona.uz' : null)
+	)?.toLowerCase()
+	const phone = process.env.OWNER_PHONE || '+998901001001'
+
+	if (!username || !password || !email) return
+	if (isProduction && password === 'Owner12345!') {
+		throw new Error('Refusing to use demo OWNER_PASSWORD in production')
+	}
+
+	const shouldSyncPassword = process.env.SYNC_OWNER_PASSWORD === 'true'
+
+	let byUsername = await prisma.user.findFirst({ where: { username } })
+	let byEmail = await prisma.user.findFirst({ where: { email } })
+	let target = byUsername || byEmail
+
+	if (!target) {
+		try {
+			await createUser({
+				firstName: process.env.OWNER_FIRST_NAME || 'Toyxona',
+				lastName: process.env.OWNER_LAST_NAME || 'Owner',
+				email,
+				username,
+				phone,
+				password,
+				role: 'owner',
+				isVerified: true,
+			})
+			console.log('Owner user created')
+			return
+		} catch (error) {
+			if (error?.code !== 'P2002') throw error
+			byUsername = await prisma.user.findFirst({ where: { username } })
+			byEmail = await prisma.user.findFirst({ where: { email } })
+			target = byUsername || byEmail
+			if (!target) throw error
+		}
+	}
+
+	const data = {
+		role: 'OWNER',
+		isVerified: true,
+		...(shouldSyncPassword
+			? { passwordHash: await hashPassword(password) }
+			: {}),
+	}
+
+	const usernameTakenByOther = byUsername && byUsername.id !== target.id
+	const emailTakenByOther = byEmail && byEmail.id !== target.id
+	if (!usernameTakenByOther) data.username = username
+	if (!emailTakenByOther) data.email = email
+
+	await prisma.user.update({
+		where: { id: target.id },
+		data,
+	})
+	console.log('Owner user ready')
+}
+
+async function seedUser() {
+	const seedDemo = process.env.SEED_DEMO === 'true'
+	const username = process.env.USER_USERNAME || (seedDemo ? 'ozod_user' : null)
+	const password = process.env.USER_PASSWORD || (seedDemo ? 'User12345!' : null)
+	const email = (
+		process.env.USER_EMAIL || (seedDemo ? 'ozod@toyxona.uz' : null)
+	)?.toLowerCase()
+	const phone = process.env.USER_PHONE || '+998901112233'
+
+	if (!username || !password || !email) return
+	if (isProduction && password === 'User12345!') {
+		throw new Error('Refusing to use demo USER_PASSWORD in production')
+	}
+
+	const shouldSyncPassword = process.env.SYNC_USER_PASSWORD === 'true'
+
+	let byUsername = await prisma.user.findFirst({ where: { username } })
+	let byEmail = await prisma.user.findFirst({ where: { email } })
+	let target = byUsername || byEmail
+
+	if (!target) {
+		try {
+			await createUser({
+				firstName: process.env.USER_FIRST_NAME || 'Ozod',
+				lastName: process.env.USER_LAST_NAME || 'User',
+				email,
+				username,
+				phone,
+				password,
+				role: 'user',
+				isVerified: true,
+			})
+			console.log('User created')
+			return
+		} catch (error) {
+			if (error?.code !== 'P2002') throw error
+			byUsername = await prisma.user.findFirst({ where: { username } })
+			byEmail = await prisma.user.findFirst({ where: { email } })
+			target = byUsername || byEmail
+			if (!target) throw error
+		}
+	}
+
+	const data = {
+		role: 'CUSTOMER',
+		isVerified: true,
+		...(shouldSyncPassword
+			? { passwordHash: await hashPassword(password) }
+			: {}),
+	}
+
+	const usernameTakenByOther = byUsername && byUsername.id !== target.id
+	const emailTakenByOther = byEmail && byEmail.id !== target.id
+	if (!usernameTakenByOther) data.username = username
+	if (!emailTakenByOther) data.email = email
+
+	await prisma.user.update({
+		where: { id: target.id },
+		data,
+	})
+	console.log('User ready')
+}
 const port = process.env.PORT || 5000
 app.listen(port, () => {
 	console.log(`API running on ${port}`)
 	connectDb()
-		.then(seedAdmin)
-		.then(() => {
-			if (process.env.SEED_DEMO === 'true') return seedDemoData()
-			return null
+		.then(async () => {
+			try {
+				await seedAdmin()
+			} catch (e) {
+				console.error('⚠️ Admin bootstrap error:', e.message)
+			}
+			try {
+				await seedOwner()
+			} catch (e) {
+				console.error('⚠️ Owner bootstrap error:', e.message)
+			}
+			try {
+				await seedUser()
+			} catch (e) {
+				console.error('⚠️ User bootstrap error:', e.message)
+			}
+			if (process.env.SEED_DEMO === 'true') await seedDemoData()
 		})
 		.catch(error => {
 			console.error('⚠️ Database connection error:', error.message)
